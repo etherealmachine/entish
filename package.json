@@ -15,6 +15,7 @@
     "better-peg-tracer": "^1.0.0",
     "classnames": "^2.3.1",
     "customize-cra": "^1.0.0",
+    "highlight.js": "^11.0.1",
     "pegjs": "^0.10.0",
     "pegjs-backtrace": "^0.2.1",
     "raw-loader": "^4.0.2",

@@ -1,7 +1,7 @@
 import peg from 'pegjs';
+import staticGrammar from './entish.peg';
 
 let grammar: string;
-import staticGrammar from './entish.peg';
 if (staticGrammar === 'entish.peg') {
   // Just so jest can access non-js resources
   const fs = require('fs');
@@ -103,11 +103,7 @@ type Binding = {
   comparisons: Comparison[]
 }
 
-class Entception extends Error {
-  constructor(message: string) {
-    super(message);
-  }
-}
+class Entception extends Error { }
 
 function groupBy<T>(array: T[], f: (o: T) => string) {
   const groups: { [key: string]: T[] } = {};
@@ -144,7 +140,7 @@ export default class Interpreter {
         return;
       case 'claim':
         console.log(`testing ${claimToString(statement)}`)
-        if (this.testClaim(statement) == !!statement.negative) {
+        if (this.testClaim(statement) === !!statement.negative) {
           throw new Entception(`false claim: ${claimToString(statement)}`);
         } else {
           console.log(`verified ${claimToString(statement)}`);
@@ -188,10 +184,10 @@ export default class Interpreter {
     const facts = bindings.map(binding => this.ground(inference.left, binding));
     if (facts.some(fact => fact.fields.some(field => field.type === 'aggregation'))) {
       return groupBy(facts, fact => {
-        return fact.fields.
-          filter(f => f.type === 'string' || f.type === 'integer').
-          map(f => (f as String | Integer).value).
-          join('-');
+        return fact.fields
+          .filter(f => f.type === 'string' || f.type === 'integer')
+          .map(f => (f as String | Integer).value)
+          .join('-');
       }).map(facts => {
         const first = facts[0];
         return {
@@ -442,7 +438,7 @@ export default class Interpreter {
   }
 }
 
-function statementToString(stmt: Statement): string {
+export function statementToString(stmt: Statement): string {
   switch (stmt.type) {
     case 'claim':
       return claimToString(stmt);
@@ -494,14 +490,8 @@ function expressionToString(expr: Expression): string {
       return `${expr.function}(${expr.arguments.map(e => expressionToString(e)).join(', ')})`;
     case 'aggregation':
       return `${expr.function}(${expr.arguments.map(e => {
-        switch (typeof (e)) {
-          case 'number':
-            return e;
-          case 'string':
-            return e;
-          case 'object':
-            return expressionToString(e);
-        }
+        if (typeof (e) === 'object') return expressionToString(e);
+        return e;
       }).join(', ')})`;
   }
 }

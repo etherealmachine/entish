@@ -10,100 +10,100 @@ if (staticGrammar === 'entish.peg') {
   grammar = staticGrammar;
 }
 
-type Statement = Comment | Fact | Inference | Claim | Query
+export type Statement = Comment | Fact | Inference | Claim | Query
 
-type Comment = {
+export type Comment = {
   type: 'comment'
   value: string
 }
 
-type Fact = {
+export type Fact = {
   type: 'fact'
   table: string
   fields: Expression[]
   negative?: boolean
 }
 
-type Inference = {
+export type Inference = {
   type: 'inference'
   left: Fact
   right: Conjunction | Disjunction
 }
 
-type Clause = Fact | Conjunction | Disjunction | Comparison
+export type Clause = Fact | Conjunction | Disjunction | Comparison
 
-type Conjunction = {
+export type Conjunction = {
   type: 'conjunction'
   clauses: Clause[]
 }
 
-type Disjunction = {
+export type Disjunction = {
   type: 'disjunction'
   clauses: Clause[]
 }
 
-type Comparison = {
+export type Comparison = {
   type: 'comparison'
   operator: '=' | '>' | '<' | '>=' | '<=' | '!='
   left: Expression
   right: Expression
 }
 
-type Claim = {
+export type Claim = {
   type: 'claim'
   table: string
   fields: Expression[]
   negative?: boolean
 }
 
-type Query = {
+export type Query = {
   type: 'query'
   query: Clause
 }
 
-type Expression = Function | BinaryOperation | String | Variable | Integer | Aggregation
+export type Expression = Function | BinaryOperation | String | Variable | Integer | Aggregation
 
-type BinaryOperation = {
+export type BinaryOperation = {
   type: 'binary_operation'
   left: Expression
   right: Expression
   operator: '+' | '-' | '*' | '/' | '^'
 }
 
-type Function = {
+export type Function = {
   type: 'function'
   function: 'floor' | 'sum'
   arguments: Expression[]
 }
 
-type String = {
+export type String = {
   type: 'string'
   value: string
 }
 
-type Variable = {
+export type Variable = {
   type: 'variable'
   value: string
 }
 
-type Integer = {
+export type Integer = {
   type: 'integer'
   value: number
 }
 
-type Aggregation = {
+export type Aggregation = {
   type: 'aggregation'
   function: 'sum'
   arguments: (string | number | Aggregation)[]
 }
 
-type Binding = {
+export type Binding = {
   facts: Fact[]
   values: { [key: string]: string | number | Aggregation }
   comparisons: Comparison[]
 }
 
-class Entception extends Error { }
+export class Entception extends Error { }
 
 function groupBy<T>(array: T[], f: (o: T) => string) {
   const groups: { [key: string]: T[] } = {};
@@ -113,6 +113,12 @@ function groupBy<T>(array: T[], f: (o: T) => string) {
     groups[group].push(o);
   });
   return Object.keys(groups).map(group => groups[group]);
+}
+
+function equal(expr1: Expression, expr2: Expression): boolean {
+  if (expr1.type !== expr2.type) return false;
+  if ('value' in expr1 && 'value' in expr2) return expr1.value === expr2.value;
+  throw new Entception(`incomparable types: ${expr1.type} and ${expr2.type}`);
 }
 
 export default class Interpreter {
@@ -163,7 +169,7 @@ export default class Interpreter {
 
   loadFact(fact: Fact) {
     if (fact.negative) {
-      this.tables[fact.table] = this.tables[fact.table].filter(row => row.every((col, i) => fact.fields[i] === col));
+      this.tables[fact.table] = this.tables[fact.table].filter(row => !row.every((col, i) => equal(fact.fields[i], col)));
       return;
     }
     if (!this.tables[fact.table]) {
@@ -451,19 +457,19 @@ export function statementToString(stmt: Statement): string {
   }
 }
 
-function inferenceToString(inf: Inference): string {
+export function inferenceToString(inf: Inference): string {
   return `${factToString(inf.left)} :- ${clauseToString(inf.right)}.`
 }
 
-function queryToString(q: Query): string {
+export function queryToString(q: Query): string {
   return `${clauseToString(q.query)}?`;
 }
 
-function factToString(fact: Fact): string {
+export function factToString(fact: Fact): string {
   return `${fact.negative ? '~' : ''}${fact.table}(${fact.fields.map(e => expressionToString(e)).join(', ')})`;
 }
 
-function clauseToString(clause: Clause): string {
+export function clauseToString(clause: Clause): string {
   switch (clause.type) {
     case 'fact':
       return factToString(clause);
@@ -476,7 +482,7 @@ function clauseToString(clause: Clause): string {
   }
 }
 
-function expressionToString(expr: Expression): string {
+export function expressionToString(expr: Expression): string {
   switch (expr.type) {
     case 'string':
       return expr.value;
@@ -496,6 +502,6 @@ function expressionToString(expr: Expression): string {
   }
 }
 
-function claimToString(claim: Claim): string {
+export function claimToString(claim: Claim): string {
   return `∴ ${factToString(claim as unknown as Fact)}`;
 }

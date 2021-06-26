@@ -8,6 +8,14 @@ import example from './example.ent';
 const Container = styled.div`
   display: flex;
   flex-direction: row;
+  margin: 24px;
+`;
+
+const Database = styled.div`
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
 `;
 
 function Table({ name, rows }: { name: string, rows: (String | Integer)[][] }) {
@@ -30,9 +38,9 @@ function App() {
   interpreter.load(example);
   return <Container>
     <Highlight language="entish">{example}</Highlight>
-    <div>
+    <Database>
       {Object.entries(interpreter.tables).map(([name, rows]) => <Table key={name} name={name} rows={rows} />)}
-    </div>
+    </Database>
   </Container>;
 }
 

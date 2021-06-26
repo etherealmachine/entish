@@ -1,0 +1,67 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "ent",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#variables"
+		},
+		{
+			"include": "#constants"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control.ent",
+					"match": "∴"
+				},
+				{
+					"name": "keyword.operator.ent",
+					"match": "((\\:\\-)|\\-|\\+|\\/)"
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.double-slash.ent",
+					"begin": "//",
+					"end": "\n"
+				},
+				{
+					"name": "comment.block.ent",
+					"begin": "/\\*",
+					"end": "\\*/"
+				}
+			]
+		},
+		"variables": {
+			"patterns": [
+				{
+					"name": "variable.parameter.ent",
+					"match": "[a-z]+"
+				}
+			]
+		},
+		"constants": {
+			"patterns": [
+				{
+					"name": "string.ent",
+					"match": "[A-Z][a-z]+"
+				},
+				{
+					"name": "constant.numeric.ent",
+					"match": "[0-9]+"
+				}
+			]
+		}
+	},
+	"scopeName": "source.ent"
+}

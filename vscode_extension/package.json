@@ -1,0 +1,34 @@
+{
+  "name": "vscode-entish-extension",
+  "displayName": "vscode_entish_extension",
+  "description": "A VSCode extension to support Entish",
+  "publisher": "0",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.35.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "ent",
+        "aliases": [
+          "ent"
+        ],
+        "extensions": [
+          ".ent"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ent",
+        "scopeName": "source.ent",
+        "path": "./syntaxes/ent.tmLanguage.json"
+      }
+    ]
+  }
+}

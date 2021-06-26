@@ -1,0 +1,91 @@
+// Auric has a Strength of 16
+attribute(Auric, Strength, 16).
+
+// Auric has a Wisdom of 16
+attribute(Auric, Wisdom, 9).
+
+// A character's bonus is half their attribute score minus ten
+bonus(character, attr, floor((score-10)/2)) :- attribute(character, attr, score).
+
+// Therefore, Auric has a Strength bonus of 3
+∴ bonus(Auric, Strength, 3).
+
+// Therefore, Auric has a Wisdom bonus of -1
+∴ bonus(Auric, Wisdom, -1).
+
+// Full Plate has the clumsy tag
+tag(FullPlate, Clumsy).
+
+// Auric is wearing Full Plate
+wearing(Auric, FullPlate).
+
+// Given gear has a tag and the character is wearing the gear, add the tag to the character
+tag(character, tag) :- wearing(character, gear) & tag(gear, tag).
+
+// Therefore Auric has the Clumsy tag
+∴ tag(Auric, Clumsy).
+
+// Full Plate has a weight of 4
+weight(FullPlate, 4).
+
+// Full Plate has an armor bonus of 3
+armor(FullPlate, 3).
+
+// Let's give Auric a shield too
+weight(RoundShield, 1).
+armor(RoundShield, 1).
+wielding(Auric, RoundShield).
+
+// Given a character, their armor is the sum of the armor of gear they are wearing/wielding
+armor(character, sum(armor)) :- (wearing(character, gear) | wielding(character, gear)) & armor(gear, armor).
+
+// Therefore Auric has 4 armor
+∴ armor(Auric, 4).
+
+// What's Auric's strength bonus again?
+bonus(Auric, Strength, ?)?
+
+// A TwoHandedSword has a weight of 2
+weight(TwoHandedSword, 2).
+
+// A TwoHandedSword has a damage bonus of 1
+damage(TwoHandedSword, 1).
+
+// A TwoHandedSword has the Close tag
+tag(TwoHandedSword, Close).
+
+// Auric is wielding a Two Handed Sword
+wielding(Auric, TwoHandedSword).
+
+// Given a character, their load is the sum of the weights of gear they are wearing and wielding
+load(character, sum(weight)) :- (wearing(character, gear) | wielding(character, gear)) & weight(gear, weight).
+
+// Therefore Auric has a load of 7
+∴ load(Auric, 7).
+
+// What's he wielding?
+wielding(Auric, ?)?
+
+// Auric has the Barbarian class
+class(Auric, Barbarian).
+
+// The max load of a Barbarian is 8 plus their strength bonus
+max_load(character, 8+str) :- class(character, Barbarian) & bonus(character, Strength, str).
+
+// Therefore Auric's max load is 11
+∴ max_load(Auric, 11).
+
+// Given a character and max load, they are tagged with Encumbered if their load is greater than their max load
+tag(character, Encumbered) :- load(character, load) & max_load(character, max_load) & load > max_load.
+
+// Therefore Auric is not Encumbered
+∴ ~tag(Auric, Encumbered).
+
+// Auric has the move "Full Plate and Packing Steel"
+move(Auric, FullPlateAndPackingSteel).
+
+// The move "Full Plate and Packing Steel" negates the Clumsy tag
+~tag(character, Clumsy) :- move(character, FullPlateAndPackingSteel).
+
+// Auric is not Clumsy
+∴ ~tag(Auric, Clumsy).

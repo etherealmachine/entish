@@ -1,0 +1,118 @@
+{
+  function joinClauses(type, first, rest) {
+    if (first.type === 'fact' && rest.length === 1 && (rest[0].type === 'conjunction' || rest[0].type === 'disjunction')) {
+      rest[0].clauses.unshift(first);
+      return rest[0];
+    }
+    return {
+      type: type,
+      clauses: [first].concat(rest),
+    };
+  }
+}
+
+statements
+  = statement+
+
+statement
+  = comment:comment "\n"? { return comment }
+  / inference:inference "." { return inference }
+  / claim:claim "." { return claim }
+  / fact:fact "." { return fact }
+  / query:clause "?" { return { type: 'query', query: query } }
+  / [ \t\r\n]+ { return null }
+
+fact
+  = whitespace name:variable "(" args:arguments ")" whitespace { return { type: 'fact', table: name.value, fields: args.arguments } }
+  / whitespace "~" fact:fact { return { ...fact, negative: true } }
+
+expr
+  = addition
+  / multiplication 
+  / function
+  / variable
+  / string 
+  / integer
+
+term
+  = multiplication
+  / factor
+
+factor
+  = parenthetical_expr
+  / function
+  / variable
+  / integer 
+
+addition
+  = left:term whitespace operator:([+\-]) whitespace right:expr { return { type: 'binary_operation', operator, left, right } }
+
+multiplication
+  = left:factor whitespace operator:([*/]) whitespace right:expr { return { type: 'binary_operation', operator, left, right } }
+
+parenthetical_expr
+  = "(" " "* expr:expr " "* ")" { return expr }
+
+function
+  = name:variable "(" args:arguments ")" { return { type: 'function', function: name.value, arguments: args.arguments } }
+
+arguments
+  = whitespace first:expr rest:nextargs* whitespace { return { type: 'arguments', arguments: [first].concat(rest) } }
+
+nextargs
+  = "," whitespace expr:expr { return expr }
+
+inference
+  = left:fact ":-" whitespace right:clause { return { type: 'inference', left, right } }
+
+clause
+  = conjunction
+  / disjunction
+  / "(" whitespace clause:clause whitespace ")" { return clause }
+  / fact
+  / comparison
+
+conjunction
+  = "(" first:clause ")" whitespace rest:next_conjunction+ { return joinClauses('conjunction', first, rest) }
+  / first:fact rest:next_conjunction+ { return joinClauses('conjunction', first, rest) }
+
+disjunction
+  = "(" first:fact ")" whitespace rest:next_disjunction+ { return joinClauses('disjunction', first, rest) }
+  / first:fact rest:next_disjunction+ { return joinClauses('disjunction', first, rest) }
+
+next_conjunction
+  = "&" whitespace clause:clause { return clause }
+
+next_disjunction
+  = "|" whitespace clause:clause { return clause }
+
+claim
+  = "∴" claim:fact { return { ...claim, type: 'claim' } }
+
+comparison
+  = left:expr whitespace operator:comparison_operator whitespace right:expr { return { type: 'comparison', operator, left, right }}
+
+comparison_operator
+  = op:"=" { return op }
+  / op:"!=" { return op }
+  / op:">" { return op }
+  / op:"<" { return op }
+  / op:">=" { return op }
+  / op:"<=" { return op }
+
+comment
+  = "//" comment:[^\n]* { return { type: 'comment', value: comment.join('').trim() } }
+  / "/*" comment:(!"*/" .)* "*/" { return { type: 'comment', value: comment.flat().join('').trim() }}
+
+string
+  = name:([A-Z][A-Za-z_]+) { return { type: 'string', value: name[0] + name[1].join('') } }
+
+variable
+  = name:([a-z_]+) { return { type: 'variable', value: name.join('') } }
+  / "?" { return { type: 'variable', value: '?' } }
+
+integer
+  = negative:([-])? digits:([0-9]+) { const i = parseInt(digits.join(''), 10); return { type: 'integer', value: negative ? -i : i } }
+
+whitespace
+  = [ \t\r\n]*

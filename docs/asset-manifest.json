@@ -1,0 +1,19 @@
+{
+  "files": {
+    "main.js": "/entish/static/js/main.c831febe.chunk.js",
+    "main.js.map": "/entish/static/js/main.c831febe.chunk.js.map",
+    "runtime-main.js": "/entish/static/js/runtime-main.75de7360.js",
+    "runtime-main.js.map": "/entish/static/js/runtime-main.75de7360.js.map",
+    "static/js/2.ec4f78ef.chunk.js": "/entish/static/js/2.ec4f78ef.chunk.js",
+    "static/js/2.ec4f78ef.chunk.js.map": "/entish/static/js/2.ec4f78ef.chunk.js.map",
+    "static/js/3.ebd1e866.chunk.js": "/entish/static/js/3.ebd1e866.chunk.js",
+    "static/js/3.ebd1e866.chunk.js.map": "/entish/static/js/3.ebd1e866.chunk.js.map",
+    "index.html": "/entish/index.html",
+    "static/js/2.ec4f78ef.chunk.js.LICENSE.txt": "/entish/static/js/2.ec4f78ef.chunk.js.LICENSE.txt"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.75de7360.js",
+    "static/js/2.ec4f78ef.chunk.js",
+    "static/js/main.c831febe.chunk.js"
+  ]
+}

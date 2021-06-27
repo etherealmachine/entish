@@ -1,9 +1,11 @@
 import React from 'react';
 import styled from 'astroturf/react';
+import Editor from "@monaco-editor/react";
 
 import Highlight from './Highlight';
 import Interpreter, { String, Integer } from './entmoot';
 import example from './example.ent';
+import useMonacoEntish from './useMonacoEntish';
 
 const Container = styled.div`
   display: flex;
@@ -34,10 +36,19 @@ function Table({ name, rows }: { name: string, rows: (String | Integer)[][] }) {
 }
 
 function App() {
+  useMonacoEntish();
   const interpreter = new Interpreter();
   interpreter.load(example);
   return <Container>
-    <Highlight language="entish">{example}</Highlight>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <Editor
+        height="90vh"
+        defaultLanguage="entish"
+        defaultValue={example}
+        options={{ minimap: { enabled: false } }}
+      />
+      <Highlight language="entish">{example}</Highlight>
+    </div>
     <Database>
       {Object.entries(interpreter.tables).map(([name, rows]) => <Table key={name} name={name} rows={rows} />)}
     </Database>

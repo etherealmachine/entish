@@ -1,15 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'astroturf/react';
 import Editor from "@monaco-editor/react";
 
-import Highlight from './Highlight';
 import Interpreter, { String, Integer } from './entmoot';
 import example from './example.ent';
 import useMonacoEntish from './useMonacoEntish';
 
 const Container = styled.div`
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   margin: 24px;
 `;
 
@@ -38,20 +37,34 @@ function Table({ name, rows }: { name: string, rows: (String | Integer)[][] }) {
 function App() {
   useMonacoEntish();
   const interpreter = new Interpreter();
-  interpreter.load(example);
+  const [code, setCode] = useState<string>(example);
+  const [log, setLog] = useState<string[]>([]);
+  const runExample = () => {
+    const tmp = (console as any).log;
+    const newLog: string[] = [];
+    (console as any).log = (msg: string) => {
+      newLog.push(msg);
+    }
+    interpreter.load(code);
+    (console as any).log = tmp;
+    setLog(newLog);
+  }
   return <Container>
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <h1>Entish is a declarative datalog-like language implemented in Typescript</h1>
+    <h2>Why?</h2>
+    <p>I designed Entish to play around with implementing table-top RPG rules in formal logic.</p>
+    <h2>Example</h2>
+    <div style={{ display: 'flex', flexDirection: 'column', width: "100%" }}>
       <Editor
-        height="90vh"
+        height="50vh"
         defaultLanguage="entish"
         defaultValue={example}
+        onChange={value => { if (value) setCode(value) }}
         options={{ minimap: { enabled: false } }}
       />
-      <Highlight language="entish">{example}</Highlight>
+      <button onClick={runExample}>Run</button>
+      <div>{log.map((msg, i) => <p key={`log-msg-${i}`}>{msg}</p>)}</div>
     </div>
-    <Database>
-      {Object.entries(interpreter.tables).map(([name, rows]) => <Table key={name} name={name} rows={rows} />)}
-    </Database>
   </Container>;
 }
 

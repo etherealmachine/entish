@@ -125,6 +125,7 @@ export default class Interpreter {
 
   parser: PEG.Parser;
   tables: { [key: string]: (String | Integer)[][] } = {}
+  inferences: Inference[] = []
 
   constructor() {
     this.parser = peg.generate(grammar);
@@ -140,9 +141,7 @@ export default class Interpreter {
         return;
       case 'inference':
         console.log(`inferring ${inferenceToString(statement)}`);
-        const newFacts = this.loadInference(statement);
-        newFacts.forEach(f => this.loadFact(f));
-        newFacts.forEach(f => console.log(`added ${factToString(f)}`));
+        this.loadInference(statement);
         return;
       case 'claim':
         console.log(`testing ${claimToString(statement)}`)
@@ -178,18 +177,21 @@ export default class Interpreter {
     if (fact.fields.some(expr => expr.type !== 'string' && expr.type !== 'integer')) {
       throw new Entception(`facts must be grounded with strings or integers: ${factToString(fact)}`);
     }
-    this.tables[fact.table].push(fact.fields as (String | Integer)[]);
+    if (!this.tables[fact.table].some(e => e.every((f, i) => equal(f, fact.fields[i])))) {
+      this.tables[fact.table].push(fact.fields as (String | Integer)[]);
+      this.inferences.forEach(i => this.loadInference(i, true));
+    }
   }
 
   query(query: Query): Fact[] {
     return this.searchInferenceTree(query.query).map(b => b.facts).flat();
   }
 
-  loadInference(inference: Inference): Fact[] {
+  loadInference(inference: Inference, recursive: boolean = false) {
     const bindings = this.searchInferenceTree(inference.right);
-    const facts = bindings.map(binding => this.ground(inference.left, binding));
+    let facts = bindings.map(binding => this.ground(inference.left, binding));
     if (facts.some(fact => fact.fields.some(field => field.type === 'aggregation'))) {
-      return groupBy(facts, fact => {
+      facts = groupBy(facts, fact => {
         return fact.fields
           .filter(f => f.type === 'string' || f.type === 'integer')
           .map(f => (f as String | Integer).value)
@@ -203,7 +205,10 @@ export default class Interpreter {
         };
       });
     }
-    return facts;
+    facts.forEach(f => this.loadFact(f));
+    if (!recursive) {
+      this.inferences.push(inference);
+    }
   }
 
   aggregate(expr: Expression, index: number, groups: Fact[]): Expression {
@@ -259,7 +264,7 @@ export default class Interpreter {
     switch (clause.type) {
       case 'fact':
         // facts return one binding per matching row of the table
-        return this.tables[clause.table].map(row => this.bind(row, clause)).filter(b => b !== undefined) as Binding[];
+        return (this.tables[clause.table] || []).map(row => this.bind(row, clause)).filter(b => b !== undefined) as Binding[];
       case 'conjunction':
         // conjunction joins bindings into a single binding
         let rows: Binding[][] = [];

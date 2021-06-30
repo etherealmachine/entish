@@ -14,10 +14,8 @@ export default function Highlight(props: React.PropsWithChildren<{ language: str
 			if (node) hljs.highlightElement(node);
 		}
 	});
-	return <pre style={{ fontSize: '12px' }}>
-		<code
-			ref={ref}
-			className={`language-${props.language}`}
-			dangerouslySetInnerHTML={{ __html: props.children?.toString() || "" }} />
-	</pre>;
+	return <code
+		ref={ref}
+		className={`language-${props.language}`}
+		dangerouslySetInnerHTML={{ __html: props.children?.toString() || "" }} />;
 }

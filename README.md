@@ -117,8 +117,10 @@ It's been a minute - maybe you've forgotten what Auric has on him.
 return any facts that pattern match what you give them:
 
 ```
-wielding(Auric, ?)?
-wearing(Auric, ?)?
+? wielding(Auric, ?) | wearing(Auric, ?).
+> wielding(Auric, RoundShield)
+> wielding(Auric, TwoHandedSword)
+> wearing(Auric, FullPlate)
 ```
 
 One final example:

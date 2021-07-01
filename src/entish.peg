@@ -19,7 +19,7 @@ statement
   / inference:inference "." { return inference }
   / claim:claim "." { return claim }
   / fact:fact "." { return fact }
-  / query:clause "?" { return { type: 'query', query: query } }
+  / "?" query:clause "." { return { type: 'query', query: query } }
   / [ \t\r\n]+ { return null }
 
 fact

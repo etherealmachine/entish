@@ -23,6 +23,10 @@
 					"match": "∴"
 				},
 				{
+					"name": "keyword.control.ent",
+					"match": "^\\?"
+				},
+				{
 					"name": "keyword.operator.ent",
 					"match": "((\\:\\-)|\\-|\\+|\\/)"
 				}

@@ -43,7 +43,7 @@ armor(character, sum(armor)) :- (wearing(character, gear) | wielding(character, 
 ∴ armor(Auric, 4).
 
 // What's Auric's strength bonus again?
-bonus(Auric, Strength, ?)?
+? bonus(Auric, Strength, ?).
 
 // A TwoHandedSword has a weight of 2
 weight(TwoHandedSword, 2).
@@ -64,7 +64,7 @@ load(character, sum(weight)) :- (wearing(character, gear) | wielding(character, 
 ∴ load(Auric, 7).
 
 // What's he wielding?
-wielding(Auric, ?)?
+? wielding(Auric, ?).
 
 // Auric has the Barbarian class
 class(Auric, Barbarian).

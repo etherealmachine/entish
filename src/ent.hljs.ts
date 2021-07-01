@@ -30,11 +30,11 @@ export default function entish(api?: HLJSApi) {
       },
       {
         scope: 'keyword',
-        begin: ':-'
+        begin: '^[?]'
       },
       {
-        begin: [/\)/, /\?/],
-        beginScope: { 2: 'keyword' }
+        scope: 'keyword',
+        begin: ':-'
       },
       {
         begin: [/\)/, /\./],

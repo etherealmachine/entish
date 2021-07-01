@@ -14,14 +14,14 @@ export default function useMonacoEntish() {
 			],
 			tokenizer: {
 				root: [
+					[/∴|:-|\.|^\?/, 'keyword'],
 					[/\/\/.*$/, 'comment'],
 					[/[A-Z][a-z]*/, 'constant'],
 					[/\d+/, 'number'],
 					[/[()]/, '@brackets'],
 					[/([a-z_]+)\(/, 'identifier'],
-					[/[a-z_]+/, 'variable.name'],
+					[/[a-z_]+|\?/, 'variable.name'],
 					[/[,]/, 'delimiter'],
-					[/∴|:-|\.|\?/, 'keyword'],
 					[/~|=|>|<|!=|>=|<=|\*|\/|\+|-|\^|&|\|/, 'operators'],
 					[/[ \t\r\n]+/, ''],
 				],

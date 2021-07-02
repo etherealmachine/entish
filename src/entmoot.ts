@@ -206,7 +206,7 @@ export default class Interpreter {
       });
     }
     facts.forEach(f => this.loadFact(f));
-    if (!recursive) {
+    if (!recursive && !this.inferences.some(inf => inferenceToString(inf) === inferenceToString(inference))) {
       this.inferences.push(inference);
     }
   }

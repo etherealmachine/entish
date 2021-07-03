@@ -1,8 +1,8 @@
 import Interpreter from './entmoot';
 import fs from 'fs';
-const example = fs.readFileSync('./src/example.ent').toString();
+const dungeon_world = fs.readFileSync('./src/dungeon_world.ent').toString();
 
 test('can run the interpreter', () => {
 	const interpreter = new Interpreter();
-	interpreter.load(example);
+	interpreter.load(dungeon_world);
 });

@@ -3,7 +3,11 @@ It exists to play with implementing table-top RPG rules in formal logic.
 
 Try it for yourself in the [Playground](//etherealmachine.github.io/entish)!
 
-## Huh?
+or 
+
+Install it with `npm install entish` or `yarn add entish`.
+
+## What is Entish?
 * Declarative
   * You load rules into Entish and the interpreter figures out other rules
 * Datalog-Like

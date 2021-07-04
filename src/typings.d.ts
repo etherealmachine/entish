@@ -9,3 +9,5 @@ declare module "*.ent" {
 }
 
 declare module "highlight";
+
+declare module 'pegjs-backtrace';

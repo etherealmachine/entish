@@ -148,4 +148,4 @@ The idea is to integrate Entish into an easy-to-use "virtual tabletop" UI. Sort 
 I'd also love to use it inside my [Mapmaker](https://etherealmachine.github.io/mapmaker) app and combine this into a one-stop-shop for rules and maps. The grand vision is that all of this could help drive Procedural Generation in RPGs, so imagine you have a Roguelike but it's still driven by a GM, with opportunities for kitbashing rules and content, crunchy combat, and the roleplay you can only get from real people.
 
 ## What about rolls and dice?
-The `damage` fact in the example has a `roll`, but it's kind of a lie. Rolls are just constants, like `Auric`, `TwoHandedSword`, and `5`. I have obvious ideas around instantiating facts from rolls and doing probability math on aggregations of rolls, but no concrete quite yet.
+The `damage` fact in the example has a `roll`, but it's kind of a lie. Rolls are just constants, like `Auric`, `TwoHandedSword`, and `5`. I have obvious ideas around instantiating facts from rolls and doing probability math on aggregations of rolls, but nothing concrete quite yet.

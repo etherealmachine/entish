@@ -1,19 +1,19 @@
 {
   "files": {
-    "main.js": "/entish/static/js/main.88c7ef2b.chunk.js",
-    "main.js.map": "/entish/static/js/main.88c7ef2b.chunk.js.map",
-    "runtime-main.js": "/entish/static/js/runtime-main.0246cda0.js",
-    "runtime-main.js.map": "/entish/static/js/runtime-main.0246cda0.js.map",
-    "static/js/2.4b0cb437.chunk.js": "/entish/static/js/2.4b0cb437.chunk.js",
-    "static/js/2.4b0cb437.chunk.js.map": "/entish/static/js/2.4b0cb437.chunk.js.map",
-    "static/js/3.028357c2.chunk.js": "/entish/static/js/3.028357c2.chunk.js",
-    "static/js/3.028357c2.chunk.js.map": "/entish/static/js/3.028357c2.chunk.js.map",
+    "main.js": "/entish/static/js/main.a48729e3.chunk.js",
+    "main.js.map": "/entish/static/js/main.a48729e3.chunk.js.map",
+    "runtime-main.js": "/entish/static/js/runtime-main.f05e0d1c.js",
+    "runtime-main.js.map": "/entish/static/js/runtime-main.f05e0d1c.js.map",
+    "static/js/2.da90c8d8.chunk.js": "/entish/static/js/2.da90c8d8.chunk.js",
+    "static/js/2.da90c8d8.chunk.js.map": "/entish/static/js/2.da90c8d8.chunk.js.map",
+    "static/js/3.f667f1c9.chunk.js": "/entish/static/js/3.f667f1c9.chunk.js",
+    "static/js/3.f667f1c9.chunk.js.map": "/entish/static/js/3.f667f1c9.chunk.js.map",
     "index.html": "/entish/index.html",
-    "static/js/2.4b0cb437.chunk.js.LICENSE.txt": "/entish/static/js/2.4b0cb437.chunk.js.LICENSE.txt"
+    "static/js/2.da90c8d8.chunk.js.LICENSE.txt": "/entish/static/js/2.da90c8d8.chunk.js.LICENSE.txt"
   },
   "entrypoints": [
-    "static/js/runtime-main.0246cda0.js",
-    "static/js/2.4b0cb437.chunk.js",
-    "static/js/main.88c7ef2b.chunk.js"
+    "static/js/runtime-main.f05e0d1c.js",
+    "static/js/2.da90c8d8.chunk.js",
+    "static/js/main.a48729e3.chunk.js"
   ]
 }

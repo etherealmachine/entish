@@ -1,4 +1,5 @@
 import peg from 'pegjs';
+import Tracer from 'pegjs-backtrace';
 import staticGrammar from './entish.peg';
 
 let grammar: string;
@@ -51,19 +52,17 @@ export type Comparison = {
 
 export type Claim = {
   type: 'claim'
-  table: string
-  fields: Expression[]
-  negative?: boolean
+  clause: Clause
 }
 
 export type Query = {
   type: 'query'
-  query: Clause
+  clause: Clause
 }
 
 export type Expression = Constant | Function | BinaryOperation | Variable | Aggregation
 
-export type Constant = String | Integer | Roll
+export type Constant = String | Number | Roll
 
 export type BinaryOperation = {
   type: 'binary_operation'
@@ -74,7 +73,7 @@ export type BinaryOperation = {
 
 export type Function = {
   type: 'function'
-  function: 'floor' | 'sum'
+  function: 'floor' | 'sum' | 'Pr'
   arguments: Expression[]
 }
 
@@ -88,8 +87,8 @@ export type Variable = {
   value: string
 }
 
-export type Integer = {
-  type: 'integer'
+export type Number = {
+  type: 'number'
   value: number
 }
 
@@ -134,11 +133,11 @@ function equal(expr1: Expression, expr2: Expression): boolean {
 export default class Interpreter {
 
   parser: PEG.Parser;
-  tables: { [key: string]: (String | Integer)[][] } = {}
+  tables: { [key: string]: Constant[][] } = {}
   inferences: Inference[] = []
 
   constructor() {
-    this.parser = peg.generate(grammar);
+    this.parser = peg.generate(grammar, { trace: true });
   }
 
   exec(statement: Statement) {
@@ -155,7 +154,7 @@ export default class Interpreter {
         return;
       case 'claim':
         console.log(`testing ${claimToString(statement)}`)
-        if (this.testClaim(statement) === !!statement.negative) {
+        if (!this.testClaim(statement)) {
           throw new Entception(`false claim: ${claimToString(statement)}`);
         } else {
           console.log(`verified ${claimToString(statement)}`);
@@ -169,10 +168,21 @@ export default class Interpreter {
   }
 
   load(input: string) {
-    const statements = this.parser.parse(input).filter((x: any) => x);
-    for (let line in statements) {
-      const statement = statements[line];
-      this.exec(statement);
+    const tracer = new Tracer(input, { useColor: false });
+    try {
+      const statements = this.parser.parse(input, { tracer: tracer }).filter((x: any) => x);
+      for (let line in statements) {
+        const statement = statements[line];
+        this.exec(statement);
+      }
+    } catch (e) {
+      if ('location' in e) {
+        console.error(tracer.getBacktraceString());
+        throw new Error(`Line ${e.location.start.line} Column ${e.location.start.column}: ${e.message}`);
+      } else {
+        console.error(e);
+        throw e;
+      }
     }
   }
 
@@ -184,17 +194,17 @@ export default class Interpreter {
     if (!this.tables[fact.table]) {
       this.tables[fact.table] = [];
     }
-    if (fact.fields.some(expr => expr.type !== 'string' && expr.type !== 'integer' && expr.type !== 'roll')) {
-      throw new Entception(`facts must be grounded with strings or integers: ${factToString(fact)}`);
+    if (fact.fields.some(expr => expr.type !== 'string' && expr.type !== 'number' && expr.type !== 'roll')) {
+      throw new Entception(`facts must be grounded with strings or numbers: ${factToString(fact)}`);
     }
     if (!this.tables[fact.table].some(e => e.every((f, i) => equal(f, fact.fields[i])))) {
-      this.tables[fact.table].push(fact.fields as (String | Integer)[]);
+      this.tables[fact.table].push(fact.fields as Constant[]);
       this.inferences.forEach(i => this.loadInference(i, true));
     }
   }
 
   query(query: Query): Fact[] {
-    return this.searchInferenceTree(query.query).map(b => b.facts).flat();
+    return this.searchInferenceTree(query.clause).map(b => b.facts).flat();
   }
 
   loadInference(inference: Inference, recursive: boolean = false) {
@@ -203,8 +213,8 @@ export default class Interpreter {
     if (facts.some(fact => fact.fields.some(field => field.type === 'aggregation'))) {
       facts = groupBy(facts, fact => {
         return fact.fields
-          .filter(f => f.type === 'string' || f.type === 'integer')
-          .map(f => (f as String | Integer).value)
+          .filter(f => f.type === 'string' || f.type === 'number')
+          .map(f => (f as String | Number).value)
           .join('-');
       }).map(facts => {
         const first = facts[0];
@@ -224,7 +234,7 @@ export default class Interpreter {
   aggregate(expr: Expression, index: number, groups: Fact[]): Expression {
     switch (expr.type) {
       case 'string':
-      case 'integer':
+      case 'number':
         return expr;
       case 'aggregation':
         const args = groups.map(f => {
@@ -235,7 +245,7 @@ export default class Interpreter {
           return field.arguments;
         });
         return {
-          type: 'integer',
+          type: 'number',
           value: (args as number[][]).flat().reduce((n, c) => n + c, 0),
         };
       default:
@@ -252,7 +262,7 @@ export default class Interpreter {
         switch (typeof (result)) {
           case 'number':
             return {
-              type: 'integer',
+              type: 'number',
               value: result,
             };
           case 'string':
@@ -336,21 +346,23 @@ export default class Interpreter {
     }
   }
 
-  bind(constants: (String | Integer)[], clause: Fact): Binding | undefined {
+  bind(constants: Constant[], clause: Fact): Binding | undefined {
     const bindings = constants.map((value, i) => {
       const field = clause.fields[i];
+      const unboxedValue = value.type === 'roll' ? rollToString(value) : value.value;
       switch (field.type) {
         case 'string':
-        case 'integer':
-          if (value.value !== field.value) {
+        case 'number':
+        case 'roll':
+          if (!equal(value, field)) {
             return false;
           }
-          return [`${clause.table}[${i}]`, value.value];
+          return [`${clause.table}[${i}]`, unboxedValue];
         case 'variable':
           if (field.value === '?') {
-            return [`${clause.table}[${i}]`, value.value];
+            return [`${clause.table}[${i}]`, unboxedValue];
           }
-          return [field.value, value.value];
+          return [field.value, unboxedValue];
         default:
           throw new Entception(`can't handle ${field.type} ${expressionToString(field)} in clause`);
       }
@@ -390,14 +402,17 @@ export default class Interpreter {
   }
 
   testClaim(claim: Claim): boolean {
-    const table = this.tables[claim.table];
-    if (table) {
-      for (const row of table) {
-        if (row.length !== claim.fields.length) continue;
-        if (claim.fields.every((field, i) => field.type === row[i].type && field.value === row[i].value)) { return true }
+    if (claim.clause.type === 'fact') {
+      const table = this.tables[claim.clause.table];
+      if (table) {
+        for (const row of table) {
+          if (row.length !== claim.clause.fields.length) continue;
+          if (claim.clause.fields.every((field, i) => field.type === row[i].type && JSON.stringify(field) === JSON.stringify(row[i]))) { return !claim.clause.negative }
+        }
       }
+      return !!claim.clause.negative;
     }
-    return false;
+    throw new Entception(`Can't verify claims of type ${claim.clause.type}`);
   }
 
   evaluateFunction(fn: Function, binding: Binding): string | number | Aggregation {
@@ -451,7 +466,7 @@ export default class Interpreter {
       case 'variable':
         return binding.values[expr.value];
       case 'string':
-      case 'integer':
+      case 'number':
         return expr.value;
       case 'roll':
         return rollToString(expr);
@@ -479,7 +494,7 @@ export function inferenceToString(inf: Inference): string {
 }
 
 export function queryToString(q: Query): string {
-  return `${clauseToString(q.query)}?`;
+  return `${clauseToString(q.clause)}?`;
 }
 
 export function factToString(fact: Fact): string {
@@ -503,7 +518,7 @@ export function expressionToString(expr: Expression): string {
   switch (expr.type) {
     case 'string':
       return expr.value;
-    case 'integer':
+    case 'number':
       return expr.value.toString();
     case 'roll':
       return rollToString(expr);
@@ -527,5 +542,5 @@ export function rollToString(roll: Roll): string {
 }
 
 export function claimToString(claim: Claim): string {
-  return `∴ ${factToString(claim as unknown as Fact)}`;
+  return `∴ ${clauseToString(claim.clause)}`;
 }

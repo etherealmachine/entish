@@ -9,6 +9,9 @@
       clauses: [first].concat(rest),
     };
   }
+  function parseNumber(n) {
+    return parseFloat(n.flat().filter(d => d).join(''));
+  }
 }
 
 statements
@@ -19,7 +22,7 @@ statement
   / inference:inference "." { return inference }
   / claim:claim "." { return claim }
   / fact:fact "." { return fact }
-  / "?" query:clause "." { return { type: 'query', query: query } }
+  / "?" query:clause "." { return { type: 'query', clause: query } }
   / [ \t\r\n]+ { return null }
 
 fact
@@ -29,11 +32,13 @@ fact
 expr
   = addition
   / multiplication 
+  / probability
   / function
+  / "(" comparison ")"
   / variable
   / roll
   / string 
-  / integer
+  / number
 
 term
   = multiplication
@@ -43,7 +48,7 @@ factor
   = parenthetical_expr
   / function
   / variable
-  / integer 
+  / number 
 
 addition
   = left:term whitespace operator:([+\-]) whitespace right:expr { return { type: 'binary_operation', operator, left, right } }
@@ -62,6 +67,10 @@ arguments
 
 nextargs
   = "," whitespace expr:expr { return expr }
+
+probability
+  = "Pr(" arg:variable ")" { return { type: 'function', function: 'probability', arguments: [arg] } }
+  / "Pr(" arg:roll ")" { return { type: 'function', function: 'probability', arguments: [arg] } }
 
 inference
   = left:fact ":-" whitespace right:clause { return { type: 'inference', left, right } }
@@ -88,18 +97,18 @@ next_disjunction
   = "|" whitespace clause:clause { return clause }
 
 claim
-  = "∴" claim:fact { return { ...claim, type: 'claim' } }
+  = "∴" clause:clause { return { type: 'claim', clause: clause } }
 
 comparison
-  = left:expr whitespace operator:comparison_operator whitespace right:expr { return { type: 'comparison', operator, left, right }}
+  = whitespace left:expr whitespace operator:comparison_operator whitespace right:expr whitespace { return { type: 'comparison', operator, left, right }}
 
 comparison_operator
   = op:"=" { return op }
   / op:"!=" { return op }
-  / op:">" { return op }
-  / op:"<" { return op }
   / op:">=" { return op }
   / op:"<=" { return op }
+  / op:">" { return op }
+  / op:"<" { return op }
 
 comment
   = "//" comment:[^\n]* { return { type: 'comment', value: comment.join('').trim() } }
@@ -115,8 +124,8 @@ variable
 roll
   = count:([0-9]+) "d" die:([0-9]+) modifier:([+-][0-9]+)? { return { type: 'roll', count: parseInt(count), die: parseInt(die), modifier: parseInt(modifier || '0') } }
 
-integer
-  = negative:([-])? digits:([0-9]+) { const i = parseInt(digits.join(''), 10); return { type: 'integer', value: negative ? -i : i } }
+number
+  = number:([-]?[0-9]+([.][0-9]+)?) { return { type: 'number', value: parseNumber(number) } }
 
 whitespace
   = [ \t\r\n]*

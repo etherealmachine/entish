@@ -14,8 +14,8 @@ Install it with `npm install entish` or `yarn add entish`.
   * This might be the only Javascript-based [Datalog](//en.wikipedia.org/wiki/Datalog) implementation in existence.
   	That means you can [play around with it](//etherealmachine.github.io/entish) right in your browser.
 * Table-Top RPG Rules
-  * I build Entish becaues I wanted to try implementing rules for table-top RPGs in formal logic.
-    It includes some not-exactly-standard features to support this, like aggregations.
+  * I build Entish because I wanted to try implementing rules for table-top RPGs in formal logic.
+    It includes some not-exactly-standard features to support this, like aggregations and rolls.
 
 ## For these examples, we're going to talk about our first character - a Barbarian named "Auric"
 So let's talk about Auric...

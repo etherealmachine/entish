@@ -31,6 +31,7 @@ expr
   / multiplication 
   / function
   / variable
+  / roll
   / string 
   / integer
 
@@ -110,6 +111,9 @@ string
 variable
   = name:([a-z_]+) { return { type: 'variable', value: name.join('') } }
   / "?" { return { type: 'variable', value: '?' } }
+
+roll
+  = count:([0-9]+) "d" die:([0-9]+) modifier:([+-][0-9]+)? { return { type: 'roll', count: parseInt(count), die: parseInt(die), modifier: parseInt(modifier || '0') } }
 
 integer
   = negative:([-])? digits:([0-9]+) { const i = parseInt(digits.join(''), 10); return { type: 'integer', value: negative ? -i : i } }

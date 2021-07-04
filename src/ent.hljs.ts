@@ -41,6 +41,10 @@ export default function entish(api?: HLJSApi) {
         beginScope: { 2: 'keyword' }
       },
       {
+        scope: 'symbol',
+        begin: /[0-9]+d[0-9]+([+-][0-9]+)?/
+      },
+      {
         scope: 'number',
         begin: hljs.NUMBER_RE
       },

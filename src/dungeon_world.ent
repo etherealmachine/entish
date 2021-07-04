@@ -31,7 +31,7 @@ armor(RoundShield, 1).
 
 // And a sword
 weight(TwoHandedSword, 2).
-damage(TwoHandedSword, 1).
+damage(TwoHandedSword, 1d8).
 tag(TwoHandedSword, Close).
 
 // Given gear has a tag and the character is wearing the gear, add the tag to the character

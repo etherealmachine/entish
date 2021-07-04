@@ -61,6 +61,10 @@
 					"match": "[A-Z][a-z]+"
 				},
 				{
+					"name": "constant.language.roll.ent",
+					"match": "[0-9]+d[0-9]+([+-][0-9]+)?"
+				},
+				{
 					"name": "constant.numeric.ent",
 					"match": "[0-9]+"
 				}

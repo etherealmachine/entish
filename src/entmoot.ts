@@ -61,7 +61,7 @@ export type Query = {
   query: Clause
 }
 
-export type Expression = Function | BinaryOperation | String | Variable | Integer | Aggregation
+export type Expression = Function | BinaryOperation | String | Variable | Integer | Roll | Aggregation
 
 export type BinaryOperation = {
   type: 'binary_operation'
@@ -91,6 +91,13 @@ export type Integer = {
   value: number
 }
 
+export type Roll = {
+  type: 'roll'
+  count: number
+  die: number
+  modifier: number
+}
+
 export type Aggregation = {
   type: 'aggregation'
   function: 'sum'
@@ -117,6 +124,7 @@ function groupBy<T>(array: T[], f: (o: T) => string) {
 
 function equal(expr1: Expression, expr2: Expression): boolean {
   if (expr1.type !== expr2.type) return false;
+  if (expr1.type === 'roll' && expr2.type === 'roll') return rollToString(expr1) === rollToString(expr2);
   if ('value' in expr1 && 'value' in expr2) return expr1.value === expr2.value;
   throw new Entception(`incomparable types: ${expr1.type} and ${expr2.type}`);
 }
@@ -174,7 +182,7 @@ export default class Interpreter {
     if (!this.tables[fact.table]) {
       this.tables[fact.table] = [];
     }
-    if (fact.fields.some(expr => expr.type !== 'string' && expr.type !== 'integer')) {
+    if (fact.fields.some(expr => expr.type !== 'string' && expr.type !== 'integer' && expr.type !== 'roll')) {
       throw new Entception(`facts must be grounded with strings or integers: ${factToString(fact)}`);
     }
     if (!this.tables[fact.table].some(e => e.every((f, i) => equal(f, fact.fields[i])))) {
@@ -443,6 +451,8 @@ export default class Interpreter {
       case 'string':
       case 'integer':
         return expr.value;
+      case 'roll':
+        return rollToString(expr);
       case 'aggregation':
         return expr;
     }
@@ -493,6 +503,8 @@ export function expressionToString(expr: Expression): string {
       return expr.value;
     case 'integer':
       return expr.value.toString();
+    case 'roll':
+      return rollToString(expr);
     case 'variable':
       return expr.value;
     case 'binary_operation':
@@ -505,6 +517,11 @@ export function expressionToString(expr: Expression): string {
         return e;
       }).join(', ')})`;
   }
+}
+
+export function rollToString(roll: Roll): string {
+  const mod = roll.modifier > 0 ? `+${roll.modifier}` : roll.modifier < 0 ? `-${roll.modifier}` : '';
+  return `${roll.count}d${roll.die}${mod}`;
 }
 
 export function claimToString(claim: Claim): string {

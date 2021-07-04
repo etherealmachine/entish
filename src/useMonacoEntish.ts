@@ -17,6 +17,7 @@ export default function useMonacoEntish() {
 					[/∴|:-|\.|^\?/, 'keyword'],
 					[/\/\/.*$/, 'comment'],
 					[/[A-Z][a-z]*/, 'constant'],
+					[/[0-9]+d[0-9]+([+-][0-9]+)?/, 'constant'],
 					[/\d+/, 'number'],
 					[/[()]/, '@brackets'],
 					[/([a-z_]+)\(/, 'identifier'],

@@ -61,7 +61,9 @@ export type Query = {
   query: Clause
 }
 
-export type Expression = Function | BinaryOperation | String | Variable | Integer | Roll | Aggregation
+export type Expression = Constant | Function | BinaryOperation | Variable | Aggregation
+
+export type Constant = String | Integer | Roll
 
 export type BinaryOperation = {
   type: 'binary_operation'

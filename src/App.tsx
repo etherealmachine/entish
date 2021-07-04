@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import styled from 'astroturf/react';
 import Editor from "@monaco-editor/react";
 
-import Interpreter, { String, Integer } from './entmoot';
+import Interpreter, { Constant, expressionToString } from './entmoot';
 import useMonacoEntish from './useMonacoEntish';
 import dungeon_world from './dungeon_world.ent';
 
@@ -68,12 +68,12 @@ function Database({ interpreter }: { interpreter: Interpreter }) {
   </div >;
 }
 
-function Table({ name, rows }: { name: string, rows: (String | Integer)[][] }) {
+function Table({ name, rows }: { name: string, rows: Constant[][] }) {
   return <table>
     <tbody>
       {rows.map((row, i) => <tr key={`${name}-${i}`}>
         {row.map((val, j) => <td key={`${name}-${i}-${j}`}>
-          {val.value}
+          {expressionToString(val)}
         </td>)}
       </tr>)}
     </tbody>

@@ -59,7 +59,7 @@ armor(RoundShield, 1).
 
 // And a sword
 weight(TwoHandedSword, 2).
-damage(TwoHandedSword, 1).
+damage(TwoHandedSword, 1d8).
 tag(TwoHandedSword, Close).
 
 // Given gear has a tag and the character is wearing the gear, add the tag to the character
@@ -140,3 +140,12 @@ Now we're really deviating from Datalog! **Negating** facts makes things complic
 worth it because sometimes you want rules that tell you to ignore other rules.
 
 This example is pre-loaded in the [Playground](//etherealmachine.github.io/entish)
+
+# FAQ
+## How is this useful?
+The idea is to integrate Entish into an easy-to-use "virtual tabletop" UI. Sort of like Roll20 or Foundry, but with an emphasis on fast play driven by the automatic rule evaluation and inference. So maybe it's a language for building customizable virtual tabletops. Don't like the rules? Pull them up in Entish and modify/homebrew them to your liking.
+
+I'd also love to use it inside my [Mapmaker](https://etherealmachine.github.io/mapmaker) app and combine this into a one-stop-shop for rules and maps. The grand vision is that all of this could help drive Procedural Generation in RPGs, so imagine you have a Roguelike but it's still driven by a GM, with opportunities for kitbashing rules and content, crunchy combat, and the roleplay you can only get from real people.
+
+## What about rolls and dice?
+The `damage` fact in the example has a `roll`, but it's kind of a lie. Rolls are just constants, like `Auric`, `TwoHandedSword`, and `5`. I have obvious ideas around instantiating facts from rolls and doing probability math on aggregations of rolls, but no concrete quite yet.

@@ -73,7 +73,7 @@ export type BinaryOperation = {
 
 export type Function = {
   type: 'function'
-  function: 'floor' | 'sum' | 'Pr'
+  function: 'floor' | 'sum' | 'count' | 'Pr'
   arguments: Expression[]
 }
 
@@ -101,13 +101,13 @@ export type Roll = {
 
 export type Aggregation = {
   type: 'aggregation'
-  function: 'sum'
-  arguments: (string | number | Aggregation)[]
+  function: 'sum' | 'count'
+  arguments: (Constant | Aggregation)[]
 }
 
 export type Binding = {
   facts: Fact[]
-  values: { [key: string]: string | number | Aggregation }
+  values: { [key: string]: Constant | Aggregation }
   comparisons: Comparison[]
 }
 
@@ -204,11 +204,11 @@ export default class Interpreter {
   }
 
   query(query: Query): Fact[] {
-    return this.searchInferenceTree(query.clause).map(b => b.facts).flat();
+    return this.search(query.clause).map(b => b.facts).flat();
   }
 
   loadInference(inference: Inference, recursive: boolean = false) {
-    const bindings = this.searchInferenceTree(inference.right);
+    const bindings = this.search(inference.right);
     let facts = bindings.map(binding => this.ground(inference.left, binding));
     if (facts.some(fact => fact.fields.some(field => field.type === 'aggregation'))) {
       facts = groupBy(facts, fact => {
@@ -237,17 +237,23 @@ export default class Interpreter {
       case 'number':
         return expr;
       case 'aggregation':
-        const args = groups.map(f => {
-          const field = f.fields[index];
-          if (field.type !== 'aggregation') {
-            throw new Entception(`TODO`);
-          }
-          return field.arguments;
-        });
-        return {
-          type: 'number',
-          value: (args as number[][]).flat().reduce((n, c) => n + c, 0),
-        };
+        if (expr.function === 'sum') {
+          const args = groups.map(f => {
+            const field = f.fields[index];
+            if (field.type !== 'aggregation') {
+              throw new Entception(`TODO`);
+            }
+            return field.arguments;
+          });
+          return {
+            type: 'number',
+            value: args.flat().reduce((n, c) => {
+              if (c.type !== 'number') throw new Entception(`Can't sum type ${c.type}`);
+              return n + c.value;
+            }, 0),
+          };
+        }
+        throw new Entception(`Non-existent aggregation function ${expr.function}`);
       default:
         throw new Entception(`TODO`);
     }
@@ -280,7 +286,7 @@ export default class Interpreter {
     }
   }
 
-  searchInferenceTree(clause: Clause): Binding[] {
+  search(clause: Clause): Binding[] {
     switch (clause.type) {
       case 'fact':
         // facts return one binding per matching row of the table
@@ -288,11 +294,11 @@ export default class Interpreter {
       case 'conjunction':
         // conjunction joins bindings into a single binding
         let rows: Binding[][] = [];
-        this.join(clause.clauses.map(clause => this.searchInferenceTree(clause)), [], rows);
+        this.join(clause.clauses.map(clause => this.search(clause)), [], rows);
         return rows.map(bindings => this.reduceBindings(bindings)).filter(b => b !== undefined) as Binding[];
       case 'disjunction':
         // disjunction concatenates bindings
-        return clause.clauses.map(clause => this.searchInferenceTree(clause)).flat();
+        return clause.clauses.map(clause => this.search(clause)).flat();
       case 'comparison':
         return [{
           facts: [] as Fact[],
@@ -320,7 +326,7 @@ export default class Interpreter {
     try {
       return bindings.reduce((current, binding) => {
         Object.keys(current.values).forEach(key => {
-          if (binding.values[key] && binding.values[key] !== current.values[key]) {
+          if (binding.values[key] && !equal(binding.values[key], current.values[key])) {
             throw new Entception(`bindings disagree: ${binding.values[key]} != ${current.values[key]}`);
           }
         });
@@ -347,36 +353,39 @@ export default class Interpreter {
   }
 
   bind(constants: Constant[], clause: Fact): Binding | undefined {
-    const bindings = constants.map((value, i) => {
-      const field = clause.fields[i];
-      const unboxedValue = value.type === 'roll' ? rollToString(value) : value.value;
-      switch (field.type) {
-        case 'string':
-        case 'number':
-        case 'roll':
-          if (!equal(value, field)) {
-            return false;
-          }
-          return [`${clause.table}[${i}]`, unboxedValue];
-        case 'variable':
-          if (field.value === '?') {
-            return [`${clause.table}[${i}]`, unboxedValue];
-          }
-          return [field.value, unboxedValue];
-        default:
-          throw new Entception(`can't handle ${field.type} ${expressionToString(field)} in clause`);
-      }
-    });
-    if (bindings.some(v => !v)) return undefined;
-    return {
-      facts: [{
-        type: 'fact',
-        table: clause.table,
-        fields: constants,
-      }],
-      values: Object.fromEntries(bindings as Iterable<readonly [PropertyKey, string | number]>),
-      comparisons: [],
-    };
+    try {
+      const bindings = constants.map((value, i) => {
+        const field = clause.fields[i];
+        switch (field.type) {
+          case 'string':
+          case 'number':
+          case 'roll':
+            if (!equal(value, field)) {
+              throw new Entception(`binding mismatch: ${value} != ${field}`);
+            }
+            return [`${clause.table}[${i}]`, value];
+          case 'variable':
+            if (field.value === '?') {
+              return [`${clause.table}[${i}]`, value];
+            }
+            return [field.value, value];
+          default:
+            throw new Entception(`can't handle ${field.type} ${expressionToString(field)} in clause`);
+        }
+      });
+      return {
+        facts: [{
+          type: 'fact',
+          table: clause.table,
+          fields: constants,
+        }],
+        values: Object.fromEntries(bindings),
+        comparisons: [],
+      };
+    } catch (e) {
+      if (e.message.startsWith('binding mismatch')) return undefined;
+      throw e;
+    }
   }
 
   compare(comparison: Comparison, binding: Binding): boolean {
@@ -411,18 +420,21 @@ export default class Interpreter {
         }
       }
       return !!claim.clause.negative;
+    } else if (claim.clause.type === 'conjunction') {
+      const bindings = this.search(claim.clause);
+      console.log(bindings);
     }
     throw new Entception(`Can't verify claims of type ${claim.clause.type}`);
   }
 
-  evaluateFunction(fn: Function, binding: Binding): string | number | Aggregation {
+  evaluateFunction(fn: Function, binding: Binding): Constant | Aggregation {
     switch (fn.function) {
       case 'floor':
         const arg = this.evaluateExpression(fn.arguments[0], binding);
-        if (typeof (arg) !== 'number') {
-          throw new Entception(`floor requires numeric argument, got ${arg}`);
+        if (arg.type !== 'number') {
+          throw new Entception(`floor requires numeric argument, got ${arg.type}`);
         }
-        return Math.floor(arg);
+        return { type: 'number', value: Math.floor(arg.value) };
       case 'sum':
         return {
           type: 'aggregation',
@@ -436,40 +448,38 @@ export default class Interpreter {
 
   evaluateBinaryOperation(op: BinaryOperation, binding: Binding): number {
     const left = this.evaluateExpression(op.left, binding);
-    if (typeof (left) !== 'number') {
+    if (left.type !== 'number') {
       throw new Entception(`binary operation requires number on left-hand side, got ${left}`);
     }
     const right = this.evaluateExpression(op.right, binding);
-    if (typeof (right) !== 'number') {
+    if (right.type !== 'number') {
       throw new Entception(`binary operation requires number on right-hand side, got ${right}`);
     }
     switch (op.operator) {
       case '+':
-        return left + right;
+        return left.value + right.value;
       case '-':
-        return left - right;
+        return left.value - right.value;
       case '/':
-        return left / right;
+        return left.value / right.value;
       case '*':
-        return left * right;
+        return left.value * right.value;
       case '^':
-        return Math.pow(left, right);
+        return Math.pow(left.value, right.value);
     }
   }
 
-  evaluateExpression(expr: Expression, binding: Binding): string | number | Aggregation {
+  evaluateExpression(expr: Expression, binding: Binding): Constant | Aggregation {
     switch (expr.type) {
       case 'binary_operation':
-        return this.evaluateBinaryOperation(expr, binding);
+        return { type: 'number', value: this.evaluateBinaryOperation(expr, binding) };
       case 'function':
         return this.evaluateFunction(expr, binding);
       case 'variable':
         return binding.values[expr.value];
       case 'string':
       case 'number':
-        return expr.value;
       case 'roll':
-        return rollToString(expr);
       case 'aggregation':
         return expr;
     }

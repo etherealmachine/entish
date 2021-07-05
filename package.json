@@ -1,8 +1,7 @@
 {
   "name": "entish",
   "homepage": "https://etherealmachine.github.io/entish",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
   "dependencies": {
     "@monaco-editor/react": "^4.2.1",
     "@testing-library/jest-dom": "^5.11.4",

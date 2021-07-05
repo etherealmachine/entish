@@ -70,5 +70,4 @@ move(Auric, FullPlateAndPackingSteel).
 
 attack(Barbarian, 1d20+2).
 
-// TODO: Working on rolls and probability math
-// ∴ attack(Barbarian, roll) & Pr(roll) >= 15 = 0.400.
+∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.400.

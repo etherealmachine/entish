@@ -45,10 +45,12 @@ export type Disjunction = {
 
 export type Comparison = {
   type: 'comparison'
-  operator: '=' | '>' | '<' | '>=' | '<=' | '!='
+  operator: ComparisonOperator
   left: Expression
   right: Expression
 }
+
+export type ComparisonOperator = '=' | '>' | '<' | '>=' | '<=' | '!='
 
 export type Claim = {
   type: 'claim'
@@ -60,9 +62,9 @@ export type Query = {
   clause: Clause
 }
 
-export type Expression = Constant | Function | BinaryOperation | Variable | Aggregation
+export type Expression = Constant | Function | BinaryOperation | Variable | Comparison | Aggregation
 
-export type Constant = String | Number | Roll
+export type Constant = Boolean | String | Number | Roll
 
 export type BinaryOperation = {
   type: 'binary_operation'
@@ -73,8 +75,13 @@ export type BinaryOperation = {
 
 export type Function = {
   type: 'function'
-  function: 'floor' | 'sum' | 'count' | 'Pr'
+  function: 'floor' | 'sum' | 'count' | 'probability'
   arguments: Expression[]
+}
+
+export type Boolean = {
+  type: 'boolean'
+  value: boolean
 }
 
 export type String = {
@@ -112,6 +119,10 @@ export type Binding = {
 }
 
 export class Entception extends Error { }
+
+export class BindingMismatch extends Error { }
+
+export class TODO extends Error { }
 
 function groupBy<T>(array: T[], f: (o: T) => string) {
   const groups: { [key: string]: T[] } = {};
@@ -178,7 +189,7 @@ export default class Interpreter {
     } catch (e) {
       if ('location' in e) {
         console.error(tracer.getBacktraceString());
-        throw new Error(`Line ${e.location.start.line} Column ${e.location.start.column}: ${e.message}`);
+        throw new Error(`line ${e.location.start.line} Column ${e.location.start.column}: ${e.message}`);
       } else {
         console.error(e);
         throw e;
@@ -241,7 +252,7 @@ export default class Interpreter {
           const args = groups.map(f => {
             const field = f.fields[index];
             if (field.type !== 'aggregation') {
-              throw new Entception(`TODO`);
+              throw new TODO();
             }
             return field.arguments;
           });
@@ -255,7 +266,7 @@ export default class Interpreter {
         }
         throw new Entception(`Non-existent aggregation function ${expr.function}`);
       default:
-        throw new Entception(`TODO`);
+        throw new TODO();
     }
   }
 
@@ -327,17 +338,17 @@ export default class Interpreter {
       return bindings.reduce((current, binding) => {
         Object.keys(current.values).forEach(key => {
           if (binding.values[key] && !equal(binding.values[key], current.values[key])) {
-            throw new Entception(`bindings disagree: ${binding.values[key]} != ${current.values[key]}`);
+            throw new BindingMismatch(`bindings disagree: ${expressionToString(binding.values[key])} != ${expressionToString(current.values[key])}`);
           }
         });
         const newBinding = {
           facts: current.facts.concat(binding.facts),
           values: Object.assign(current.values, binding.values),
-          comparisons: [],
+          comparisons: binding.comparisons,
         };
         binding.comparisons.forEach(comparison => {
           if (!this.compare(comparison, newBinding)) {
-            throw new Entception(`false comparison: ${clauseToString(comparison)}, ${newBinding.values}`);
+            throw new BindingMismatch(`false comparison: ${clauseToString(comparison)}, ${newBinding.values}`);
           }
         });
         return newBinding;
@@ -347,8 +358,8 @@ export default class Interpreter {
         comparisons: [],
       } as Binding);
     } catch (e) {
-      if (!(e instanceof Entception)) throw e;
-      return undefined;
+      if (e instanceof BindingMismatch) return undefined;
+      throw e;
     }
   }
 
@@ -361,7 +372,7 @@ export default class Interpreter {
           case 'number':
           case 'roll':
             if (!equal(value, field)) {
-              throw new Entception(`binding mismatch: ${value} != ${field}`);
+              throw new BindingMismatch(`binding mismatch: ${value} != ${field}`);
             }
             return [`${clause.table}[${i}]`, value];
           case 'variable':
@@ -383,7 +394,7 @@ export default class Interpreter {
         comparisons: [],
       };
     } catch (e) {
-      if (e.message.startsWith('binding mismatch')) return undefined;
+      if (e instanceof BindingMismatch) return undefined;
       throw e;
     }
   }
@@ -391,23 +402,64 @@ export default class Interpreter {
   compare(comparison: Comparison, binding: Binding): boolean {
     const left = this.evaluateExpression(comparison.left, binding);
     const right = this.evaluateExpression(comparison.right, binding);
-    if (left instanceof Object || right instanceof Object) {
-      throw new Error("can't compare aggregations"); // TODO
+    if (left.type !== right.type) {
+      throw new Entception(`can't compare ${left.type} with ${right.type}`);
+    }
+    if (left.type === 'aggregation' || right.type === 'aggregation') {
+      throw new TODO();
+    }
+    if (left.type === 'roll' || right.type === 'roll') {
+      if (left.type !== 'roll' || right.type !== 'roll') {
+        throw new Entception(`can't compare ${left.type} with ${right.type}`);
+      }
+      return rollToString(left) === rollToString(right);
     }
     switch (comparison.operator) {
       case '=':
-        return left === right;
+        return left.value === right.value;
       case '!=':
-        return left !== right;
+        return left.value !== right.value;
       case '>':
-        return left > right;
+        return left.value > right.value;
       case '>=':
-        return left >= right;
+        return left.value >= right.value;
       case '<':
-        return left < right;
+        return left.value < right.value;
       case '<=':
-        return left <= right;
+        return left.value <= right.value;
     }
+  }
+
+  probability(roll: Roll, op: ComparisonOperator, target: number): number {
+    let outcomes = 0;
+    let positive_outcomes = 0;
+    for (let i = 0; i < roll.count; i++) {
+      for (let j = 1; j <= roll.die; j++) {
+        const r = j + roll.modifier;
+        outcomes++;
+        switch (op) {
+          case '=':
+            if (r === target) positive_outcomes++;
+            break;
+          case '!=':
+            if (r !== target) positive_outcomes++;
+            break;
+          case '>=':
+            if (r >= target) positive_outcomes++;
+            break;
+          case '<=':
+            if (r <= target) positive_outcomes++;
+            break;
+          case '>':
+            if (r > target) positive_outcomes++;
+            break;
+          case '<':
+            if (r < target) positive_outcomes++;
+            break;
+        }
+      }
+    }
+    return positive_outcomes / outcomes;
   }
 
   testClaim(claim: Claim): boolean {
@@ -422,9 +474,12 @@ export default class Interpreter {
       return !!claim.clause.negative;
     } else if (claim.clause.type === 'conjunction') {
       const bindings = this.search(claim.clause);
-      console.log(bindings);
+      return bindings.length > 0;
+    } else if (claim.clause.type === 'comparison') {
+      const result = this.evaluateExpression(claim.clause, { facts: [], values: {}, comparisons: [] });
+      if (result.type === 'boolean') return result.value;
     }
-    throw new Entception(`Can't verify claims of type ${claim.clause.type}`);
+    throw new Entception(`can't verify claims of type ${claim.clause.type}`);
   }
 
   evaluateFunction(fn: Function, binding: Binding): Constant | Aggregation {
@@ -441,8 +496,23 @@ export default class Interpreter {
           function: 'sum',
           arguments: fn.arguments.map(expr => this.evaluateExpression(expr, binding)),
         };
+      case 'probability':
+        if (fn.arguments[0].type === 'comparison') {
+          const roll = this.evaluateExpression(fn.arguments[0].left, binding);
+          const operator = fn.arguments[0].operator;
+          const target = this.evaluateExpression(fn.arguments[0].right, binding);
+          if (roll.type !== 'roll' || target.type !== 'number') {
+            throw new Entception(`can't compute probability for ${fn.arguments[0]}`);
+          }
+          return { type: 'number', value: this.probability(roll, operator, target.value) };
+        } else {
+          const roll = this.evaluateExpression(fn.arguments[0], binding);
+          if (roll.type !== 'roll') throw new Entception(`first argument to probability function must be a roll`);
+          return roll;
+        }
+      case 'count':
       default:
-        throw new Entception(`can't handle function ${fn.function}`)
+        throw new TODO();
     }
   }
 
@@ -477,6 +547,9 @@ export default class Interpreter {
         return this.evaluateFunction(expr, binding);
       case 'variable':
         return binding.values[expr.value];
+      case 'comparison':
+        return { type: 'boolean', value: this.compare(expr, binding) };
+      case 'boolean':
       case 'string':
       case 'number':
       case 'roll':
@@ -520,12 +593,14 @@ export function clauseToString(clause: Clause): string {
     case 'disjunction':
       return '(' + clause.clauses.map(c => clauseToString(c)).join(' | ') + ')';
     case 'comparison':
-      return `${expressionToString(clause.left)} ${clause.operator} ${expressionToString(clause.right)}`;
+      return comparisonToString(clause);
   }
 }
 
 export function expressionToString(expr: Expression): string {
   switch (expr.type) {
+    case 'boolean':
+      return expr.value.toString();
     case 'string':
       return expr.value;
     case 'number':
@@ -538,12 +613,18 @@ export function expressionToString(expr: Expression): string {
       return `${expressionToString(expr.left)} ${expr.operator} ${expressionToString(expr.right)}`;
     case 'function':
       return `${expr.function}(${expr.arguments.map(e => expressionToString(e)).join(', ')})`;
+    case 'comparison':
+      return comparisonToString(expr);
     case 'aggregation':
       return `${expr.function}(${expr.arguments.map(e => {
         if (typeof (e) === 'object') return expressionToString(e);
         return e;
       }).join(', ')})`;
   }
+}
+
+export function comparisonToString(comparison: Comparison): string {
+  return `${expressionToString(comparison.left)} ${comparison.operator} ${expressionToString(comparison.right)}`;
 }
 
 export function rollToString(roll: Roll): string {

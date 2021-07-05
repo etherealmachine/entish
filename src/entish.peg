@@ -17,8 +17,11 @@
     }
     return comparisonTree(node, rest);
   }
+  function flatten(arr) {
+    return arr.reduce((acc, cur) => acc.concat(Array.isArray(cur) ? flatten(cur) : cur), []);
+  };
   function parseNumber(n) {
-    return parseFloat(n.flat().filter(d => d).join(''));
+    return parseFloat(flatten(n).filter(d => d).join(''));
   }
 }
 
@@ -77,7 +80,7 @@ nextargs
   = "," whitespace expr:expr { return expr }
 
 probability
-  = "Pr(" whitespace arg1:expr whitespace operator:comparison_operator whitespace arg2:expr whitespace ")" { return { type: 'function', function: 'probability', arguments: [arg1, arg2]}}
+  = "Pr(" whitespace left:expr whitespace operator:comparison_operator whitespace right:expr whitespace ")" { return { type: 'function', function: 'probability', arguments: [{ type: 'comparison', left, operator, right }] } }
   / "Pr(" whitespace arg:expr whitespace ")" { return { type: 'function', function: 'probability', arguments: [arg]}}
 
 inference
@@ -87,8 +90,8 @@ clause
   = conjunction
   / disjunction
   / "(" whitespace clause:clause whitespace ")" { return clause }
-  / fact
   / comparison
+  / fact
 
 conjunction
   = "(" first:clause ")" whitespace rest:next_conjunction+ { return joinClauses('conjunction', first, rest) }
@@ -108,8 +111,8 @@ claim
   = "∴" clause:clause { return { type: 'claim', clause: clause } }
 
 comparison
-  = "(" left:expr ")" rest:next_comparison+ { return comparisonTree(left, rest) }
-  / left:expr rest:next_comparison+ { return comparisonTree(left, rest) }
+  = whitespace "(" left:expr ")" rest:next_comparison+ { return comparisonTree(left, rest) }
+  / whitespace left:expr rest:next_comparison+ { return comparisonTree(left, rest) }
 
 next_comparison
   = whitespace operator:comparison_operator whitespace expr:expr { return { operator, expr } }

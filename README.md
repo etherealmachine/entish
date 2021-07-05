@@ -138,6 +138,11 @@ move(Auric, FullPlateAndPackingSteel).
 
 // Auric is not Clumsy
 ∴ ~tag(Auric, Clumsy).
+
+// Rolls and probability - work in progress
+attack(Barbarian, 1d20+2).
+
+∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
 ```
 
 Now we're really deviating from Datalog! **Negating** facts makes things complicated, but it's
@@ -152,4 +157,7 @@ The idea is to integrate Entish into an easy-to-use "virtual tabletop" UI. Sort 
 I'd also love to use it inside my [Mapmaker](https://etherealmachine.github.io/mapmaker) app and combine this into a one-stop-shop for rules and maps. The grand vision is that all of this could help drive Procedural Generation in RPGs, so imagine you have a Roguelike but it's still driven by a GM, with opportunities for kitbashing rules and content, crunchy combat, and the roleplay you can only get from real people.
 
 ## What about rolls and dice?
-The `damage` fact in the example has a `roll`, but it's kind of a lie. Rolls are just constants, like `Auric`, `TwoHandedSword`, and `5`. I have obvious ideas around instantiating facts from rolls and doing probability math on aggregations of rolls, but nothing concrete quite yet.
+This is in progress. I've got a start on probability calculation - you can see the last part of the
+example calculates the probability of a 1d20+2 rolling more than a 15 is 40%. Still TODO is how to
+instantiate facts from "probabilistic facts", i.e. facts with rolls in them, and then trying to
+include more randomization techniques, like coin flips, dice pools, and decks of cards.

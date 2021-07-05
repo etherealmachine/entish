@@ -68,6 +68,7 @@ move(Auric, FullPlateAndPackingSteel).
 // Auric is not Clumsy
 ∴ ~tag(Auric, Clumsy).
 
+// Rolls and probability - work in progress
 attack(Barbarian, 1d20+2).
 
 ∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.

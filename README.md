@@ -27,7 +27,7 @@ class(Auric, Barbarian).
 // Auric has a Strength of 16
 attribute(Auric, Strength, 16).
 
-// Auric has a Wisdom of 16
+// Auric has a Wisdom of 9
 attribute(Auric, Wisdom, 9).
 
 // A character's bonus is half their attribute score minus ten

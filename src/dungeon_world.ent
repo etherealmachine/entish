@@ -73,4 +73,10 @@ attack(Barbarian, 1d20+2).
 
 ∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
 
+armor(Orc, 10).
+
+hit(character, weapon, enemy, roll, armor) :- class(character, class) & attack(class, roll) & wielding(character, weapon) & damage(weapon, ?) & armor(enemy, armor) & roll >= armor.
+
 🎲 attack(Barbarian, ?).
+
+∴ hit(Auric, TwoHandedSword, Orc, 14, 10).

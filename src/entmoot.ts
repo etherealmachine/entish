@@ -1,6 +1,7 @@
 import peg from 'pegjs';
-import Tracer from 'pegjs-backtrace';
 import staticGrammar from './entish.peg';
+import seedrandom from 'seedrandom';
+import Tracer from 'pegjs-backtrace';
 
 let grammar: string;
 if (staticGrammar === 'entish.peg') {
@@ -151,12 +152,15 @@ export default class Interpreter {
   parser: PEG.Parser;
   tables: { [key: string]: Constant[][] } = {}
   inferences: Inference[] = []
+  rng: () => number
 
-  constructor() {
+  constructor(seed: string) {
     this.parser = peg.generate(grammar, { trace: true });
+    this.rng = seedrandom(seed);
   }
 
   exec(statement: Statement) {
+    let results;
     switch (statement.type) {
       case 'comment':
         return;
@@ -178,11 +182,15 @@ export default class Interpreter {
         return;
       case 'query':
         console.log(`query: ${queryToString(statement)}`);
-        this.query(statement).forEach(f => console.log(`found: ${factToString(f)}`));
+        results = this.query(statement);
+        if (results.length === 0) console.warn('no matching facts found');
+        results.forEach(f => console.log(`found: ${factToString(f)}`));
         return;
       case 'rolling':
         console.log(`rolling: ${rollingToString(statement)}`);
-        this.roll(statement);
+        results = this.roll(statement);
+        if (results.length === 0) console.warn('no rolls found');
+        results.forEach(f => console.log(`rolled: ${factToString(f)}`));
         return;
       default:
         throw new TODO(`unhandled statement type: ${(statement as any).type}`);
@@ -229,8 +237,19 @@ export default class Interpreter {
     return this.search(query.clause).map(b => b.facts).flat();
   }
 
-  roll(roll: Rolling) {
-    throw new TODO();
+  roll(roll: Rolling): Fact[] {
+    const newFacts: Fact[] = [];
+    this.search(roll.clause).map(b => b.facts).flat().forEach(fact => {
+      if (fact.fields.some(f => f.type === 'roll')) {
+        newFacts.push({
+          type: 'fact',
+          table: fact.table,
+          fields: fact.fields.map(f => f.type === 'roll' ? this.generateRoll(f) : f),
+        });
+      }
+    });
+    newFacts.forEach(fact => this.loadFact(fact));
+    return newFacts;
   }
 
   loadInference(inference: Inference, recursive: boolean = false) {
@@ -417,31 +436,24 @@ export default class Interpreter {
   compare(comparison: Comparison, binding: Binding): boolean {
     const left = this.evaluateExpression(comparison.left, binding);
     const right = this.evaluateExpression(comparison.right, binding);
-    if (left.type !== right.type) {
-      throw new Entception(`can't compare ${left.type} with ${right.type}`);
-    }
     if (left.type === 'aggregation' || right.type === 'aggregation') {
-      throw new TODO();
+      return false;
     }
-    if (left.type === 'roll' || right.type === 'roll') {
-      if (left.type !== 'roll' || right.type !== 'roll') {
-        throw new Entception(`can't compare ${left.type} with ${right.type}`);
-      }
-      return rollToString(left) === rollToString(right);
-    }
+    const l = left.type === 'roll' ? this.averageRoll(left) : left.value;
+    const r = right.type === 'roll' ? this.averageRoll(right) : right.value;
     switch (comparison.operator) {
       case '=':
-        return left.value === right.value;
+        return l === r;
       case '!=':
-        return left.value !== right.value;
+        return l !== r;
       case '>':
-        return left.value > right.value;
+        return l > r;
       case '>=':
-        return left.value >= right.value;
+        return l >= r;
       case '<':
-        return left.value < right.value;
+        return l < r;
       case '<=':
-        return left.value <= right.value;
+        return l <= r;
     }
   }
 
@@ -475,6 +487,25 @@ export default class Interpreter {
       }
     }
     return positive_outcomes / outcomes;
+  }
+
+  averageRoll(roll: Roll): number {
+    let total = 0;
+    for (let i = 0; i < roll.count; i++) {
+      total += Math.floor(0.5 * roll.die) + 1 + roll.modifier;
+    }
+    return total;
+  }
+
+  generateRoll(roll: Roll): Number {
+    let total = 0;
+    for (let i = 0; i < roll.count; i++) {
+      total += Math.floor(this.rng() * roll.die) + 1 + roll.modifier;
+    }
+    return {
+      type: 'number',
+      value: total,
+    };
   }
 
   testClaim(claim: Claim): boolean {

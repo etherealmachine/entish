@@ -238,15 +238,12 @@ export default class Interpreter {
   }
 
   roll(roll: Rolling): Fact[] {
-    const newFacts: Fact[] = [];
-    this.search(roll.clause).map(b => b.facts).flat().forEach(fact => {
-      if (fact.fields.some(f => f.type === 'roll')) {
-        newFacts.push({
-          type: 'fact',
-          table: fact.table,
-          fields: fact.fields.map(f => f.type === 'roll' ? this.generateRoll(f) : f),
-        });
-      }
+    const newFacts: Fact[] = this.search(roll.clause).map(b => b.facts).flat().map(fact => {
+      return {
+        type: 'fact',
+        table: fact.table,
+        fields: fact.fields.map(f => f.type === 'roll' ? this.generateRoll(f) : f),
+      };
     });
     newFacts.forEach(fact => this.loadFact(fact));
     return newFacts;

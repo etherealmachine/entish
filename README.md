@@ -154,13 +154,14 @@ attack(Barbarian, 1d20+2).
 
 ∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
 
+enemy(Orc).
 armor(Orc, 10).
 
-hit(character, weapon, enemy, roll, armor) :- class(character, class) & attack(class, roll) & wielding(character, weapon) & damage(weapon, ?) & armor(enemy, armor) & roll >= armor.
+hit(character, weapon, enemy, roll, armor) :- class(character, class) & attack(class, roll) & wielding(character, weapon) & damage(weapon, ?) & enemy(enemy) & armor(enemy, armor) & roll >= armor.
 
-🎲 attack(Barbarian, ?).
+🎲 attack(Barbarian, ?) & enemy(Orc).
 
-∴ hit(Auric, TwoHandedSword, Orc, 14, 10).
+∴ hit(Auric, TwoHandedSword, Orc, 14, 10)
 ```
 
 This example is pre-loaded in the [Playground](//etherealmachine.github.io/entish)

@@ -27,12 +27,13 @@
     "react-dom": "^17.0.2",
     "react-scripts": "4.0.3",
     "seedrandom": "^3.0.5",
+    "shx": "^0.3.3",
     "typescript": "^4.1.2",
     "web-vitals": "^1.0.1"
   },
   "scripts": {
     "start": "react-app-rewired start",
-    "build": "react-app-rewired build && rm -rf docs && mv build docs",
+    "build": "react-app-rewired build && shx rm -rf docs && shx mv build docs",
     "test": "react-app-rewired test",
     "eject": "react-app-rewired eject"
   },

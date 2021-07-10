@@ -86,7 +86,7 @@ function App() {
     dungeon_world: dungeon_world,
     clear: '',
   };
-  const [interpreter, setInterpreter] = useState<Interpreter>(new Interpreter());
+  const [interpreter, setInterpreter] = useState<Interpreter>(new Interpreter('seed'));
   const [code, setCode] = useState<string>(examples.dungeon_world);
   const [error, setError] = useState<string | undefined>(undefined);
   const [log, setLog] = useState<string[]>([]);
@@ -95,7 +95,7 @@ function App() {
     const example = examples[event.target.value];
     setCode(example);
     editorRef.current?.getModel().setValue(example);
-    setInterpreter(new Interpreter());
+    setInterpreter(new Interpreter('seed'));
   }
   const run = () => {
     const tmp = (console as any).log;

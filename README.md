@@ -1,23 +1,26 @@
 # Entish is a declarative Datalog-like language implemented in Typescript
+
 It exists to play with implementing table-top RPG rules in formal logic.
 
 Try it for yourself in the [Playground](//etherealmachine.github.io/entish)!
 
-or 
+or
 
 Install it with `npm install entish` or `yarn add entish`.
 
 ## What is Entish?
-* Declarative
-  * You load rules into Entish and the interpreter figures out other rules
-* Datalog-Like
-  * This might be the only Javascript-based [Datalog](//en.wikipedia.org/wiki/Datalog) implementation in existence.
-  	That means you can [play around with it](//etherealmachine.github.io/entish) right in your browser.
-* Table-Top RPG Rules
-  * I build Entish because I wanted to try implementing rules for table-top RPGs in formal logic.
+
+- Declarative
+  - You load rules into Entish and the interpreter figures out other rules
+- Datalog-Like
+  - This might be the only Javascript-based [Datalog](//en.wikipedia.org/wiki/Datalog) implementation in existence.
+    That means you can [play around with it](//etherealmachine.github.io/entish) right in your browser.
+- Table-Top RPG Rules
+  - I build Entish because I wanted to try implementing rules for table-top RPGs in formal logic.
     It includes some not-exactly-standard features to support this, like aggregations and rolls.
 
 ## For these examples, we're going to talk about our first character - a Barbarian named "Auric"
+
 So let's talk about Auric...
 
 ```
@@ -113,8 +116,8 @@ tag(character, Encumbered) :- load(character, load) & max_load(character, max_lo
 You can start to see the possibilities of formalizing the rules. A nice UI could show us all
 tags asssociated with a character (maybe even on a map!). As Auric adds and drops gear, the
 tag gets added and removed from the database and thus the UI. We can even add a nice popover
-to link the inferred tag to the rule description. All this because we know *why* you're
-encumbered and *what* that means.
+to link the inferred tag to the rule description. All this because we know _why_ you're
+encumbered and _what_ that means.
 
 It's been a minute - maybe you've forgotten what Auric has on him.
 **Queries** are a standard part of Datalog, so Entish has them as well. These just
@@ -138,25 +141,40 @@ move(Auric, FullPlateAndPackingSteel).
 
 // Auric is not Clumsy
 ∴ ~tag(Auric, Clumsy).
-
-// Rolls and probability - work in progress
-attack(Barbarian, 1d20+2).
-
-∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
 ```
 
 Now we're really deviating from Datalog! **Negating** facts makes things complicated, but it's
 worth it because sometimes you want rules that tell you to ignore other rules.
 
+**Work In Progress**: Rolls and probability
+
+```
+// Rolls and probability - work in progress
+attack(Barbarian, 1d20+2).
+
+∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
+
+armor(Orc, 10).
+
+hit(character, weapon, enemy, roll, armor) :- class(character, class) & attack(class, roll) & wielding(character, weapon) & damage(weapon, ?) & armor(enemy, armor) & roll >= armor.
+
+🎲 attack(Barbarian, ?).
+
+∴ hit(Auric, TwoHandedSword, Orc, 14, 10).
+```
+
 This example is pre-loaded in the [Playground](//etherealmachine.github.io/entish)
 
 # FAQ
+
 ## How is this useful?
+
 The idea is to integrate Entish into an easy-to-use "virtual tabletop" UI. Sort of like Roll20 or Foundry, but with an emphasis on fast play driven by the automatic rule evaluation and inference. So maybe it's a language for building customizable virtual tabletops. Don't like the rules? Pull them up in Entish and modify/homebrew them to your liking.
 
 I'd also love to use it inside my [Mapmaker](https://etherealmachine.github.io/mapmaker) app and combine this into a one-stop-shop for rules and maps. The grand vision is that all of this could help drive Procedural Generation in RPGs, so imagine you have a Roguelike but it's still driven by a GM, with opportunities for kitbashing rules and content, crunchy combat, and the roleplay you can only get from real people.
 
 ## What about rolls and dice?
+
 This is in progress. I've got a start on probability calculation - you can see the last part of the
 example calculates the probability of a 1d20+2 rolling more than a 15 is 40%. Still TODO is how to
 instantiate facts from "probabilistic facts", i.e. facts with rolls in them, and then trying to

@@ -33,6 +33,7 @@ statement
   / inference:inference "." { return inference }
   / claim:claim "." { return claim }
   / fact:fact "." { return fact }
+  / roll:rolling "." { return roll}
   / "?" query:clause "." { return { type: 'query', clause: query } }
   / [ \t\r\n]+ { return null }
 
@@ -109,6 +110,9 @@ next_disjunction
 
 claim
   = "∴" clause:clause { return { type: 'claim', clause: clause } }
+
+rolling
+  = "🎲" clause:clause { return { type: 'rolling', clause: clause } }
 
 comparison
   = whitespace "(" left:expr ")" rest:next_comparison+ { return comparisonTree(left, rest) }

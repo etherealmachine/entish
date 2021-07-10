@@ -11,7 +11,7 @@ if (staticGrammar === 'entish.peg') {
   grammar = staticGrammar;
 }
 
-export type Statement = Comment | Fact | Inference | Claim | Query
+export type Statement = Comment | Fact | Inference | Claim | Rolling | Query
 
 export type Comment = {
   type: 'comment'
@@ -54,6 +54,11 @@ export type ComparisonOperator = '=' | '>' | '<' | '>=' | '<=' | '!='
 
 export type Claim = {
   type: 'claim'
+  clause: Clause
+}
+
+export type Rolling = {
+  type: 'rolling'
   clause: Clause
 }
 
@@ -175,6 +180,12 @@ export default class Interpreter {
         console.log(`query: ${queryToString(statement)}`);
         this.query(statement).forEach(f => console.log(`found: ${factToString(f)}`));
         return;
+      case 'rolling':
+        console.log(`rolling: ${rollingToString(statement)}`);
+        this.roll(statement);
+        return;
+      default:
+        throw new TODO(`unhandled statement type: ${(statement as any).type}`);
     }
   }
 
@@ -216,6 +227,10 @@ export default class Interpreter {
 
   query(query: Query): Fact[] {
     return this.search(query.clause).map(b => b.facts).flat();
+  }
+
+  roll(roll: Rolling) {
+    throw new TODO();
   }
 
   loadInference(inference: Inference, recursive: boolean = false) {
@@ -634,4 +649,8 @@ export function rollToString(roll: Roll): string {
 
 export function claimToString(claim: Claim): string {
   return `∴ ${clauseToString(claim.clause)}`;
+}
+
+export function rollingToString(roll: Rolling): string {
+  return `🎲 ${clauseToString(roll.clause)}`;
 }

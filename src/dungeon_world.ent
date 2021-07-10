@@ -72,3 +72,5 @@ move(Auric, FullPlateAndPackingSteel).
 attack(Barbarian, 1d20+2).
 
 ∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
+
+🎲 attack(Barbarian, ?).

@@ -84,4 +84,4 @@ hit(character, weapon, enemy) :- class(character, class) & attack(class, roll) &
 
 max_health(Orc, 10).
 
-health(character, max_health - sum(damage)) :- hit(?, weapon, character) & damage(weapon, damage).
+health(character, max_health - sum(damage)) :- max_health(character, max_health) & hit(?, weapon, character) & damage(weapon, damage).

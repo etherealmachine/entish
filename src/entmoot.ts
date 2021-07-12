@@ -120,7 +120,7 @@ export type Aggregation = {
 
 export type Binding = {
   facts: Fact[]
-  values: { [key: string]: Constant | Aggregation }
+  values: { [key: string]: Constant | Aggregation | undefined }
   comparisons: Comparison[]
 }
 
@@ -305,27 +305,9 @@ export default class Interpreter {
     return {
       type: 'fact',
       table: fact.table,
-      fields: fact.fields.map(expr => {
-        const result = this.evaluateExpression(expr, binding);
-        switch (typeof (result)) {
-          case 'number':
-            return {
-              type: 'number',
-              value: result,
-            };
-          case 'string':
-            return {
-              type: 'string',
-              value: result,
-            };
-          case 'object':
-            return result;
-          default:
-            throw new Entception(`unknown expression result type ${typeof (result)}`);
-        }
-      }),
+      fields: fact.fields.map(expr => this.evaluateExpression(expr, binding)),
       negative: fact.negative,
-    }
+    };
   }
 
   search(clause: Clause): Binding[] {
@@ -368,8 +350,11 @@ export default class Interpreter {
     try {
       return bindings.reduce((current, binding) => {
         Object.keys(current.values).forEach(key => {
-          if (binding.values[key] && !equal(binding.values[key], current.values[key])) {
-            throw new BindingMismatch(`bindings disagree: ${expressionToString(binding.values[key])} != ${expressionToString(current.values[key])}`);
+          const boundVariable = binding.values[key];
+          const currBoundVariable = current.values[key];
+          if (boundVariable === undefined || currBoundVariable === undefined) return;
+          if (!equal(boundVariable, currBoundVariable)) {
+            throw new BindingMismatch(`bindings disagree: ${expressionToString(boundVariable)} != ${expressionToString(currBoundVariable)}`);
           }
         });
         const newBinding = {
@@ -562,11 +547,11 @@ export default class Interpreter {
   evaluateBinaryOperation(op: BinaryOperation, binding: Binding): number {
     const left = this.evaluateExpression(op.left, binding);
     if (left.type !== 'number') {
-      throw new Entception(`binary operation requires number on left-hand side, got ${left}`);
+      throw new Entception(`binary operation requires number on left-hand side, got ${left.type}`);
     }
     const right = this.evaluateExpression(op.right, binding);
     if (right.type !== 'number') {
-      throw new Entception(`binary operation requires number on right-hand side, got ${right}`);
+      throw new Entception(`binary operation requires number on right-hand side, got ${right.type}`);
     }
     switch (op.operator) {
       case '+':
@@ -589,7 +574,11 @@ export default class Interpreter {
       case 'function':
         return this.evaluateFunction(expr, binding);
       case 'variable':
-        return binding.values[expr.value];
+        const boundVariable = binding.values[expr.value];
+        if (boundVariable === undefined) {
+          throw new Entception(`variable ${expr.value} missing from binding`);
+        }
+        return boundVariable;
       case 'comparison':
         return { type: 'boolean', value: this.compare(expr, binding) };
       case 'boolean':
@@ -598,6 +587,8 @@ export default class Interpreter {
       case 'roll':
       case 'aggregation':
         return expr;
+      default:
+        throw new Entception(`unhandled expression type ${(expr as any).type}`);
     }
   }
 }

@@ -76,8 +76,12 @@ attack(Barbarian, 1d20+2).
 enemy(Orc).
 armor(Orc, 10).
 
-hit(character, weapon, enemy, roll, armor) :- class(character, class) & attack(class, roll) & wielding(character, weapon) & damage(weapon, ?) & enemy(enemy) & armor(enemy, armor) & roll >= armor.
+hit(character, weapon, enemy) :- class(character, class) & attack(class, roll) & wielding(character, weapon) & damage(weapon, ?) & enemy(enemy) & armor(enemy, armor) & roll >= armor.
 
 🎲 attack(Barbarian, ?) & enemy(Orc).
 
-∴ hit(Auric, TwoHandedSword, Orc, 14, 10).
+∴ hit(Auric, TwoHandedSword, Orc).
+
+max_health(Orc, 10).
+
+health(character, max_health - sum(damage)) :- hit(?, weapon, character) & damage(weapon, damage).

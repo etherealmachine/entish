@@ -82,6 +82,12 @@ hit(character, weapon, enemy) :- class(character, class) & attack(class, roll) &
 
 ∴ hit(Auric, TwoHandedSword, Orc).
 
+🎲 damage(TwoHandedSword, ?).
+
+∴ damage(TwoHandedSword, 7).
+
 max_health(Orc, 10).
 
 health(character, max_health - sum(damage)) :- max_health(character, max_health) & hit(?, weapon, character) & damage(weapon, damage).
+
+∴ health(Orc, 3).

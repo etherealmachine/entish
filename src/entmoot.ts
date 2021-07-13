@@ -68,7 +68,7 @@ export type Query = {
   clause: Clause
 }
 
-export type Expression = Constant | Function | BinaryOperation | Variable | Comparison | Aggregation
+export type Expression = Constant | Function | BinaryOperation | Variable | Comparison
 
 export type Constant = Boolean | String | Number | Roll
 
@@ -112,16 +112,11 @@ export type Roll = {
   modifier: number
 }
 
-export type Aggregation = {
-  type: 'aggregation'
-  function: 'sum' | 'count'
-  arguments: (Constant | Aggregation)[]
-}
-
 export type Binding = {
   facts: Fact[]
-  values: { [key: string]: Constant | Aggregation | undefined }
+  values: { [key: string]: Constant | undefined }
   comparisons: Comparison[]
+  group?: Binding[]
 }
 
 export class Entception extends Error { }
@@ -250,64 +245,19 @@ export default class Interpreter {
   }
 
   loadInference(inference: Inference, recursive: boolean = false) {
-    const bindings = this.search(inference.right);
-    let facts = bindings.map(binding => this.ground(inference.left, binding));
-    if (facts.some(fact => fact.fields.some(field => field.type === 'aggregation'))) {
-      facts = groupBy(facts, fact => {
-        return fact.fields
-          .filter(f => f.type === 'string' || f.type === 'number')
-          .map(f => (f as String | Number).value)
-          .join('-');
-      }).map(facts => {
-        const first = facts[0];
-        return {
-          type: 'fact',
-          table: first.table,
-          fields: first.fields.map((e, i) => this.aggregate(e, i, facts))
-        };
-      });
-    }
+    const bindings = this.aggregate(inference.left, this.search(inference.right));
+    const facts: Fact[] = bindings.map(binding => {
+      return {
+        type: 'fact',
+        table: inference.left.table,
+        negative: inference.left.negative,
+        fields: inference.left.fields.map(f => this.evaluateExpression(f, binding)),
+      };
+    });
     facts.forEach(f => this.loadFact(f));
     if (!recursive && !this.inferences.some(inf => inferenceToString(inf) === inferenceToString(inference))) {
       this.inferences.push(inference);
     }
-  }
-
-  aggregate(expr: Expression, index: number, groups: Fact[]): Expression {
-    switch (expr.type) {
-      case 'string':
-      case 'number':
-        return expr;
-      case 'aggregation':
-        if (expr.function === 'sum') {
-          const args = groups.map(f => {
-            const field = f.fields[index];
-            if (field.type !== 'aggregation') {
-              throw new TODO();
-            }
-            return field.arguments;
-          });
-          return {
-            type: 'number',
-            value: args.flat().reduce((n, c) => {
-              if (c.type !== 'number') throw new Entception(`Can't sum type ${c.type}`);
-              return n + c.value;
-            }, 0),
-          };
-        }
-        throw new Entception(`Non-existent aggregation function ${expr.function}`);
-      default:
-        throw new TODO();
-    }
-  }
-
-  ground(fact: Fact, binding: Binding): Fact {
-    return {
-      type: 'fact',
-      table: fact.table,
-      fields: fact.fields.map(expr => this.evaluateExpression(expr, binding)),
-      negative: fact.negative,
-    };
   }
 
   search(clause: Clause): Binding[] {
@@ -418,9 +368,6 @@ export default class Interpreter {
   compare(comparison: Comparison, binding: Binding): boolean {
     const left = this.evaluateExpression(comparison.left, binding);
     const right = this.evaluateExpression(comparison.right, binding);
-    if (left.type === 'aggregation' || right.type === 'aggregation') {
-      return false;
-    }
     const l = left.type === 'roll' ? this.averageRoll(left) : left.value;
     const r = right.type === 'roll' ? this.averageRoll(right) : right.value;
     switch (comparison.operator) {
@@ -510,7 +457,7 @@ export default class Interpreter {
     throw new Entception(`can't verify claims of type ${claim.clause.type}`);
   }
 
-  evaluateFunction(fn: Function, binding: Binding): Constant | Aggregation {
+  evaluateFunction(fn: Function, binding: Binding): Constant {
     switch (fn.function) {
       case 'floor':
         const arg = this.evaluateExpression(fn.arguments[0], binding);
@@ -519,10 +466,24 @@ export default class Interpreter {
         }
         return { type: 'number', value: Math.floor(arg.value) };
       case 'sum':
+        if (binding.group === undefined) {
+          return {
+            type: 'number',
+            value: 0
+          };
+        }
+        const sumArg = fn.arguments[0];
+        if (sumArg.type !== 'variable') {
+          throw new Entception(`sum function requires a single variable argument, got ${sumArg.type}`);
+        }
         return {
-          type: 'aggregation',
-          function: 'sum',
-          arguments: fn.arguments.map(expr => this.evaluateExpression(expr, binding)),
+          type: 'number',
+          value: binding.group.map(g => g.values[sumArg.value]).reduce((total, curr) => {
+            if (curr === undefined) return total;
+            if (curr.type === 'roll') return total;
+            if (curr.type !== 'number') throw new Entception(`sum got a non-numerical argument, ${sumArg.value} = ${curr.type}`);
+            return total + curr.value;
+          }, 0),
         };
       case 'probability':
         if (fn.arguments[0].type === 'comparison') {
@@ -567,7 +528,7 @@ export default class Interpreter {
     }
   }
 
-  evaluateExpression(expr: Expression, binding: Binding): Constant | Aggregation {
+  evaluateExpression(expr: Expression, binding: Binding): Constant {
     switch (expr.type) {
       case 'binary_operation':
         return { type: 'number', value: this.evaluateBinaryOperation(expr, binding) };
@@ -585,10 +546,56 @@ export default class Interpreter {
       case 'string':
       case 'number':
       case 'roll':
-      case 'aggregation':
         return expr;
       default:
         throw new Entception(`unhandled expression type ${(expr as any).type}`);
+    }
+  }
+
+  aggregate(fact: Fact, bindings: Binding[]): Binding[] {
+    const aggregations = fact.fields.map(e => this.searchExpression(e, e => {
+      if (e.type === 'function' && e.function === 'sum') return e;
+      return undefined;
+    })).flat().filter(e => e !== undefined) as Function[];
+    const variables = fact.fields.map(e => this.searchExpression(e, e => {
+      if (e.type === 'function' && e.function === 'sum') return false;
+      if (e.type === 'variable') return e;
+      return undefined;
+    })).flat().filter(e => e !== undefined) as Variable[];
+    if (aggregations.length === 0) {
+      return bindings;
+    }
+    const groups = groupBy(bindings, b => {
+      const group = Object.fromEntries(variables.map(v => [v.value, b.values[v.value]]));
+      return JSON.stringify(group);
+    });
+    return groups.map(g => {
+      return {
+        facts: g.map(b => b.facts).flat(),
+        values: g[0].values,
+        comparisons: g.map(b => b.comparisons).flat(),
+        group: g,
+      };
+    });
+  }
+
+  searchExpression<T>(expr: Expression, fn: (expr: Expression) => (T | undefined | false)): T[] {
+    const result = fn(expr);
+    if (result === false) return [];
+    const a = result === undefined ? [] : [result];
+    switch (expr.type) {
+      case 'boolean':
+      case 'number':
+      case 'roll':
+      case 'variable':
+      case 'string':
+        return a;
+      case 'comparison':
+        return a.concat(this.searchExpression(expr.left, fn).concat(this.searchExpression(expr.right, fn)));
+      case 'binary_operation':
+        return a.concat(this.searchExpression(expr.left, fn).concat(this.searchExpression(expr.right, fn)));
+      case 'function':
+        return a.concat(expr.arguments.map(e => this.searchExpression(e, fn)).flat());
     }
   }
 }
@@ -649,11 +656,6 @@ export function expressionToString(expr: Expression): string {
       return `${expr.function}(${expr.arguments.map(e => expressionToString(e)).join(', ')})`;
     case 'comparison':
       return comparisonToString(expr);
-    case 'aggregation':
-      return `${expr.function}(${expr.arguments.map(e => {
-        if (typeof (e) === 'object') return expressionToString(e);
-        return e;
-      }).join(', ')})`;
   }
 }
 

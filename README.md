@@ -161,7 +161,17 @@ hit(character, weapon, enemy, roll, armor) :- class(character, class) & attack(c
 
 🎲 attack(Barbarian, ?) & enemy(Orc).
 
-∴ hit(Auric, TwoHandedSword, Orc, 14, 10)
+∴ hit(Auric, TwoHandedSword, Orc)
+
+🎲 damage(TwoHandedSword, ?).
+
+∴ damage(TwoHandedSword, 7).
+
+max_health(Orc, 10).
+
+health(character, max_health - sum(damage)) :- max_health(character, max_health) & hit(?, weapon, character) & damage(weapon, damage).
+
+∴ health(Orc, 3).
 ```
 
 This example is pre-loaded in the [Playground](//etherealmachine.github.io/entish)

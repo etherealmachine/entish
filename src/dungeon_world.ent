@@ -1,3 +1,6 @@
+// We'll start defining our character, Auric
+character(Auric).
+
 // Auric has the Barbarian class
 class(Auric, Barbarian).
 

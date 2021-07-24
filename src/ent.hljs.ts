@@ -9,66 +9,67 @@ import hljs, { HLJSApi } from "highlight.js";
 /** @type LanguageFn */
 export default function entish(api?: HLJSApi) {
   return {
-    name: 'Entish',
-    aliases: ['ent'],
+    name: "Entish",
+    aliases: ["ent"],
     contains: [
       hljs.C_LINE_COMMENT_MODE,
       hljs.COMMENT(
-        '/\\*', // begin
-        '\\*/', // end
+        "/\\*", // begin
+        "\\*/", // end
         {
           contains: [
             {
-              scope: 'doc', begin: '@\\w+'
-            }
-          ]
+              scope: "doc",
+              begin: "@\\w+",
+            },
+          ],
         }
       ),
       {
-        scope: 'keyword',
-        begin: '∴'
+        scope: "keyword",
+        begin: "∴",
       },
       {
-        scope: 'keyword',
-        begin: '^[?]'
+        scope: "keyword",
+        begin: "^[?]",
       },
       {
-        scope: 'keyword',
-        begin: ':-'
+        scope: "keyword",
+        begin: ":-",
       },
       {
         begin: [/\)/, /\./],
-        beginScope: { 2: 'keyword' }
+        beginScope: { 2: "keyword" },
       },
       {
-        scope: 'symbol',
-        begin: /[0-9]+d[0-9]+([+-][0-9]+)?/
+        scope: "symbol",
+        begin: /[0-9]+d[0-9]+([+-][0-9]+)?/,
       },
       {
-        scope: 'number',
-        begin: hljs.NUMBER_RE
+        scope: "number",
+        begin: hljs.NUMBER_RE,
       },
       {
         begin: [/[a-z_]+/, /\(/],
-        beginScope: { 1: 'title.function' }
+        beginScope: { 1: "title.function" },
       },
       {
-        scope: 'operator',
-        begin: /-|\+|\/|\*|\^|&|\||>|<|=|>=|<=|!=/
+        scope: "operator",
+        begin: /-|\+|\/|\*|\^|&|\||>|<|=|>=|<=|!=/,
       },
       {
-        scope: 'string',
+        scope: "string",
         begin: /[A-Z]/,
-        end: /[a-zA-Z]+/
+        end: /[a-zA-Z]+/,
       },
       {
-        scope: 'variable',
-        begin: /[a-z_]+/
+        scope: "variable",
+        begin: /[a-z_]+/,
       },
       {
         begin: [/,\s+/, /\?/],
-        beginScope: { 2: 'variable.language' }
-      }
-    ] as unknown as any
+        beginScope: { 2: "variable.language" },
+      },
+    ] as unknown as any,
   };
 }

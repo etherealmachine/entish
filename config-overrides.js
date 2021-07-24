@@ -15,7 +15,7 @@ const addAstroturf = plugin => config => {
 };
 
 module.exports = override(
-	addWebpackModuleRule({ test: /\.(peg|ent)$/, use: 'raw-loader' }),
+	addWebpackModuleRule({ test: /\.(peg|ent|md)$/, use: 'raw-loader' }),
 	addWebpackModuleRule({
 		test: /\.css$/,
 		use: ['style-loader', 'css-loader'],

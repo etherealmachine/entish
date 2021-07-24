@@ -657,6 +657,8 @@ export function statementToString(stmt: Statement): string {
       return inferenceToString(stmt);
     case "query":
       return queryToString(stmt);
+    case "comment":
+      return `// ${stmt.value}`;
     default:
       return `[${stmt.type}]`;
   }

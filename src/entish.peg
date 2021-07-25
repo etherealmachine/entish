@@ -1,6 +1,6 @@
 {
   function joinClauses(type, first, rest) {
-    if (first.type === 'fact' && rest.length === 1 && (rest[0].type === 'conjunction' || rest[0].type === 'disjunction')) {
+    if (first.type === 'fact' && rest.length === 1 && ['conjunction', 'disjunction', 'exclusive_disjunction'].includes(rest[0].type)) {
       rest[0].clauses.unshift(first);
       return rest[0];
     }
@@ -63,13 +63,13 @@ factor
   / number 
 
 addition
-  = left:term whitespace operator:([+\-]) whitespace right:expr { return { type: 'binary_operation', operator, left, right } }
+  = left:term whitespace operator:("+" / "-") whitespace right:expr { return { type: 'binary_operation', operator, left, right } }
 
 multiplication
-  = left:factor whitespace operator:([*/]) whitespace right:expr { return { type: 'binary_operation', operator, left, right } }
+  = left:factor whitespace operator:("*" / "/") whitespace right:expr { return { type: 'binary_operation', operator, left, right } }
 
 parenthetical_expr
-  = "(" " "* expr:expr " "* ")" { return expr }
+  = "(" whitespace expr:expr whitespace ")" { return expr }
 
 function
   = name:variable "(" args:arguments ")" { return { type: 'function', function: name.value, arguments: args.arguments } }
@@ -90,6 +90,7 @@ inference
 clause
   = conjunction
   / disjunction
+  / exclusive_disjunction
   / "(" whitespace clause:clause whitespace ")" { return clause }
   / comparison
   / fact
@@ -98,15 +99,22 @@ conjunction
   = "(" first:clause ")" whitespace rest:next_conjunction+ { return joinClauses('conjunction', first, rest) }
   / first:fact rest:next_conjunction+ { return joinClauses('conjunction', first, rest) }
 
-disjunction
-  = "(" first:fact ")" whitespace rest:next_disjunction+ { return joinClauses('disjunction', first, rest) }
-  / first:fact rest:next_disjunction+ { return joinClauses('disjunction', first, rest) }
-
 next_conjunction
   = "&" whitespace clause:clause { return clause }
 
+disjunction
+  = "(" first:clause ")" whitespace rest:next_disjunction+ { return joinClauses('disjunction', first, rest) }
+  / first:fact rest:next_disjunction+ { return joinClauses('disjunction', first, rest) }
+
 next_disjunction
   = "|" whitespace clause:clause { return clause }
+
+exclusive_disjunction
+  = "(" first:clause ")" whitespace rest:next_exclusive_disjunction+ { return joinClauses('exclusive_disjunction', first, rest) }
+  / first:fact rest:next_exclusive_disjunction+ { return joinClauses('exclusive_disjunction', first, rest) }
+
+next_exclusive_disjunction
+  = "⊕" whitespace clause:clause { return clause }
 
 claim
   = "∴" clause:clause { return { type: 'claim', clause: clause } }
@@ -122,12 +130,7 @@ next_comparison
   = whitespace operator:comparison_operator whitespace expr:expr { return { operator, expr } }
 
 comparison_operator
-  = op:"=" { return op }
-  / op:"!=" { return op }
-  / op:">=" { return op }
-  / op:"<=" { return op }
-  / op:">" { return op }
-  / op:"<" { return op }
+  = op:("=" / "!=" / ">=" / "<=" / ">" / "<") { return op }
 
 comment
   = "//" comment:[^\n]* { return { type: 'comment', value: comment.join('').trim() } }

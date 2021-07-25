@@ -31,7 +31,7 @@ export type Inference = {
   right: Conjunction | Disjunction;
 };
 
-export type Clause = Fact | Conjunction | Disjunction | Comparison;
+export type Clause = Fact | Conjunction | Disjunction | ExclusiveDisjunction | Comparison;
 
 export type Conjunction = {
   type: "conjunction";
@@ -40,6 +40,11 @@ export type Conjunction = {
 
 export type Disjunction = {
   type: "disjunction";
+  clauses: Clause[];
+};
+
+export type ExclusiveDisjunction = {
+  type: "exclusive_disjunction";
   clauses: Clause[];
 };
 
@@ -141,6 +146,23 @@ function equal(expr1: Expression, expr2: Expression): boolean {
   throw new Entception(`incomparable types: ${expr1.type} and ${expr2.type}`);
 }
 
+type TraceEvent = {
+  type: string;
+  rule: string;
+  location: {
+    start: {
+      offset: number;
+      line: number;
+      column: number;
+    };
+    end: {
+      offset: number;
+      line: number;
+      column: number;
+    };
+  };
+};
+
 export default class Interpreter {
   parser: PEG.Parser;
   tables: { [key: string]: Constant[][] } = {};
@@ -148,7 +170,7 @@ export default class Interpreter {
   rng: () => number;
 
   constructor(seed: string) {
-    this.parser = peg.generate(grammar);
+    this.parser = peg.generate(grammar, { trace: true });
     this.rng = seedrandom(seed);
   }
 
@@ -192,7 +214,7 @@ export default class Interpreter {
 
   parse(input: string): Statement[] {
     try {
-      return this.parser.parse(input).filter((x: any) => x);
+      return this.parser.parse(input, { tracer: this }).filter((x: any) => x);
     } catch (e: any) {
       if (e instanceof this.parser.SyntaxError) {
         console.log(input.slice(e.location.start.offset - 10, e.location.end.offset + 10));
@@ -200,6 +222,8 @@ export default class Interpreter {
       throw e;
     }
   }
+
+  trace(event: TraceEvent) {}
 
   load(input: string) {
     const statements = this.parse(input);
@@ -284,6 +308,8 @@ export default class Interpreter {
       case "disjunction":
         // disjunction concatenates bindings
         return clause.clauses.map((clause) => this.search(clause)).flat();
+      case "exclusive_disjunction":
+        throw new TODO();
       case "comparison":
         return [
           {
@@ -476,6 +502,12 @@ export default class Interpreter {
     } else if (claim.clause.type === "conjunction") {
       const bindings = this.search(claim.clause);
       return bindings.length > 0;
+    } else if (claim.clause.type === "exclusive_disjunction") {
+      return (
+        claim.clause.clauses.reduce((count, clause) => {
+          return count + (this.testClaim({ type: "claim", clause }) ? 1 : 0);
+        }, 0) === 1
+      );
     } else if (claim.clause.type === "comparison") {
       const result = this.evaluateExpression(claim.clause, {
         facts: [],
@@ -684,6 +716,8 @@ export function clauseToString(clause: Clause): string {
       return "(" + clause.clauses.map((c) => clauseToString(c)).join(" & ") + ")";
     case "disjunction":
       return "(" + clause.clauses.map((c) => clauseToString(c)).join(" | ") + ")";
+    case "exclusive_disjunction":
+      return "(" + clause.clauses.map((c) => clauseToString(c)).join(" ⊕ ") + ")";
     case "comparison":
       return comparisonToString(clause);
   }

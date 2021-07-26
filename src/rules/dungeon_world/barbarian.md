@@ -14,6 +14,6 @@ damage(character, 1d10) :- class(character, Barbarian).
 
 ```entish
 ∴ class(character, Barbarian) & carrying(character, DungeonRations, 5) & wielding(character, Dagger).
-∴ class(character, Barbarian) & (wielding(character, Axe) ⊕ wielding(character, TwoHandedSword)).
-∴ class(character, Barbarian) & ((carrying(character, AdventuringGear) & carrying(character, DungeonRations, 5)) ⊕ wearing(character, Chainmail)).
+∴ class(character, Barbarian) & wielding(character, Axe) ⊕ wielding(character, TwoHandedSword).
+∴ class(character, Barbarian) & carrying(character, AdventuringGear) & carrying(character, DungeonRations, 5) ⊕ wearing(character, Chainmail).
 ```

@@ -1,6 +1,7 @@
 import peg from "pegjs";
 import staticGrammar from "./entish.peg";
 import seedrandom from "seedrandom";
+import Tracer from "pegjs-backtrace";
 
 let grammar: string;
 if (staticGrammar === "entish.peg") {
@@ -165,6 +166,7 @@ type TraceEvent = {
 
 export default class Interpreter {
   parser: PEG.Parser;
+  traceEvents: TraceEvent[] = [];
   tables: { [key: string]: Constant[][] } = {};
   inferences: Inference[] = [];
   rng: () => number;
@@ -212,18 +214,28 @@ export default class Interpreter {
     }
   }
 
-  parse(input: string): Statement[] {
+  parse(input: string, colortrace = false): Statement[] {
+    const tracer = colortrace ? new Tracer(input) : this;
     try {
-      return this.parser.parse(input, { tracer: this }).filter((x: any) => x);
+      return this.parser.parse(input, { tracer: tracer }).filter((x: any) => x);
     } catch (e: any) {
       if (e instanceof this.parser.SyntaxError) {
         console.log(input.slice(e.location.start.offset - 10, e.location.end.offset + 10));
+        console.log(tracer.getBacktraceString());
       }
       throw e;
+    } finally {
+      this.traceEvents = [];
     }
   }
 
-  trace(event: TraceEvent) {}
+  trace(event: TraceEvent) {
+    this.traceEvents.push(event);
+  }
+
+  getBacktraceString() {
+    return "TODO";
+  }
 
   load(input: string) {
     const statements = this.parse(input);

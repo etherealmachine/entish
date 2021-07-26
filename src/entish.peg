@@ -1,25 +1,11 @@
 {
-  function joinClauses(type, first, rest) {
-    if (first.type === 'fact' && rest.length === 1 && ['conjunction', 'disjunction', 'exclusive_disjunction'].includes(rest[0].type)) {
-      rest[0].clauses.unshift(first);
-      return rest[0];
-    }
-    return {
-      type: type,
-      clauses: [first].concat(rest),
-    };
-  }
-  function comparisonTree(left, rest) {
-    const right = rest.shift();
-    const node = { type: 'comparison', left, operator: right.operator, right: right.expr };
-    if (rest.length === 0) {
-      return node;
-    }
-    return comparisonTree(node, rest);
+  function join(first, rest) {
+    console.log(first, rest);
+    return {};
   }
   function flatten(arr) {
     return arr.reduce((acc, cur) => acc.concat(Array.isArray(cur) ? flatten(cur) : cur), []);
-  };
+  }
   function parseNumber(n) {
     return parseFloat(flatten(n).filter(d => d).join(''));
   }
@@ -34,107 +20,55 @@ statement
   / claim:claim "." { return claim }
   / fact:fact "." { return fact }
   / roll:rolling "." { return roll}
-  / "?" query:clause "." { return { type: 'query', clause: query } }
-  / [ \t\r\n]+ { return null }
-
-fact
-  = whitespace name:variable "(" args:arguments ")" whitespace { return { type: 'fact', table: name.value, fields: args.arguments } }
-  / whitespace "~" fact:fact { return { ...fact, negative: true } }
-
-expr
-  = addition
-  / multiplication 
-  / probability
-  / function
-  / "(" comparison ")"
-  / variable
-  / roll
-  / string 
-  / number
-
-term
-  = multiplication
-  / factor
-
-factor
-  = parenthetical_expr
-  / function
-  / variable
-  / number 
-
-addition
-  = left:term whitespace operator:("+" / "-") whitespace right:expr { return { type: 'binary_operation', operator, left, right } }
-
-multiplication
-  = left:factor whitespace operator:("*" / "/") whitespace right:expr { return { type: 'binary_operation', operator, left, right } }
-
-parenthetical_expr
-  = "(" whitespace expr:expr whitespace ")" { return expr }
-
-function
-  = name:variable "(" args:arguments ")" { return { type: 'function', function: name.value, arguments: args.arguments } }
-
-arguments
-  = whitespace first:expr rest:nextargs* whitespace { return { type: 'arguments', arguments: [first].concat(rest) } }
-
-nextargs
-  = "," whitespace expr:expr { return expr }
-
-probability
-  = "Pr(" whitespace left:expr whitespace operator:comparison_operator whitespace right:expr whitespace ")" { return { type: 'function', function: 'probability', arguments: [{ type: 'comparison', left, operator, right }] } }
-  / "Pr(" whitespace arg:expr whitespace ")" { return { type: 'function', function: 'probability', arguments: [arg]}}
-
-inference
-  = left:fact ":-" whitespace right:clause { return { type: 'inference', left, right } }
-
-clause
-  = conjunction
-  / disjunction
-  / exclusive_disjunction
-  / "(" whitespace clause:clause whitespace ")" { return clause }
-  / comparison
-  / fact
-
-conjunction
-  = "(" first:clause ")" whitespace rest:next_conjunction+ { return joinClauses('conjunction', first, rest) }
-  / first:fact rest:next_conjunction+ { return joinClauses('conjunction', first, rest) }
-
-next_conjunction
-  = "&" whitespace clause:clause { return clause }
-
-disjunction
-  = "(" first:clause ")" whitespace rest:next_disjunction+ { return joinClauses('disjunction', first, rest) }
-  / first:fact rest:next_disjunction+ { return joinClauses('disjunction', first, rest) }
-
-next_disjunction
-  = "|" whitespace clause:clause { return clause }
-
-exclusive_disjunction
-  = "(" first:clause ")" whitespace rest:next_exclusive_disjunction+ { return joinClauses('exclusive_disjunction', first, rest) }
-  / first:fact rest:next_exclusive_disjunction+ { return joinClauses('exclusive_disjunction', first, rest) }
-
-next_exclusive_disjunction
-  = "⊕" whitespace clause:clause { return clause }
-
-claim
-  = "∴" clause:clause { return { type: 'claim', clause: clause } }
-
-rolling
-  = "🎲" clause:clause { return { type: 'rolling', clause: clause } }
-
-comparison
-  = whitespace "(" left:expr ")" rest:next_comparison+ { return comparisonTree(left, rest) }
-  / whitespace left:expr rest:next_comparison+ { return comparisonTree(left, rest) }
-
-next_comparison
-  = whitespace operator:comparison_operator whitespace expr:expr { return { operator, expr } }
-
-comparison_operator
-  = op:("=" / "!=" / ">=" / "<=" / ">" / "<") { return op }
+  / query:query "." { return query }
+  / __ { return null }
 
 comment
   = "//" comment:[^\n]* { return { type: 'comment', value: comment.join('').trim() } }
   / "/*" comment:(!"*/" .)* "*/" { return { type: 'comment', value: comment.flat().join('').trim() }}
+
+inference
+  = left:fact _ ":-" _ right:expr { return { type: 'inference', left, right } }
+
+claim
+  = "∴" _ clause:expr { return { type: 'claim', clause: clause } }
+
+fact
+  = name:variable "(" args:arguments ")" { return { type: 'fact', table: name.value, fields: args.arguments } }
+  / "~" fact:fact { return { ...fact, negative: true } }
+
+rolling
+  = "🎲" _ clause:expr { return { type: 'rolling', clause: clause } }
+
+query
+  = "?" _ query:expr { return { type: 'query', clause: query } }
+
+expr
+  = first:term rest:next_expr* { return join(first, rest) }
+  / "(" _ first:expr _ ")" rest:next_expr* { return join(first, rest) }
+
+next_expr
+  = _ operator:operator _ expr:expr { return [operator, expr] }
+
+term
+  = function
+  / string
+  / variable
+  / roll
+  / number
+
+function
+  = name:([A-Za-z_]+) "(" _ args:arguments _ ")" { return { type: 'function', function: name.value, arguments: args.arguments } }
+
+arguments
+  = first:expr rest:nextargs* { return { type: 'arguments', arguments: [first].concat(rest) } }
+
+nextargs
+  = _ "," _ expr:expr { return expr }
+
+operator
+  = op:("!=" / ">=" / "<=") { return op }
+  / op:[=!><&|⊕+\-*/] { return op }
 
 string
   = name:([A-Z][A-Za-z_]+) { return { type: 'string', value: name[0] + name[1].join('') } }
@@ -149,5 +83,6 @@ roll
 number
   = number:([-]?[0-9]+([.][0-9]+)?) { return { type: 'number', value: parseNumber(number) } }
 
-whitespace
-  = [ \t\r\n]*
+_  = [ \t\r\n]*
+
+__ = [ \t\r\n]+

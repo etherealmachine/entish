@@ -1,13 +1,38 @@
 {
   function join(first, rest) {
-    console.log(first, rest);
-    return {};
+    if (rest.length === 0) return first;
+    const [operator, next] = rest.shift();
+    console.log(operator, first, next);
+    switch (operator) {
+      case '&':
+      case '|':
+      case "!=":
+      case ">=":
+      case "<=":
+      case '=':
+      case '>':
+      case '<':
+      case '⊕':
+      case '+':
+      case '-':
+      case '*':
+      case '/':
+    }
+    return first;
   }
   function flatten(arr) {
     return arr.reduce((acc, cur) => acc.concat(Array.isArray(cur) ? flatten(cur) : cur), []);
   }
   function parseNumber(n) {
     return parseFloat(flatten(n).filter(d => d).join(''));
+  }
+  const BUILT_IN_FUNCTIONS = ["floor", "ceil", "min", "max", "sum", "count", "Pr"];
+  function functionOrFact(name, args) {
+    if (BUILT_IN_FUNCTIONS.indexOf(name) !== -1) {
+      return { type: 'function', function: name, arguments: args };
+    } else {
+      return { type: 'fact', table: name, fields: args };
+    }
   }
 }
 
@@ -18,7 +43,7 @@ statement
   = comment:comment "\n"? { return comment }
   / inference:inference "." { return inference }
   / claim:claim "." { return claim }
-  / fact:fact "." { return fact }
+  / fn:function "." { return fn }
   / roll:rolling "." { return roll}
   / query:query "." { return query }
   / __ { return null }
@@ -28,14 +53,10 @@ comment
   / "/*" comment:(!"*/" .)* "*/" { return { type: 'comment', value: comment.flat().join('').trim() }}
 
 inference
-  = left:fact _ ":-" _ right:expr { return { type: 'inference', left, right } }
+  = left:function _ ":-" _ right:expr { return { type: 'inference', left, right } }
 
 claim
   = "∴" _ clause:expr { return { type: 'claim', clause: clause } }
-
-fact
-  = name:variable "(" args:arguments ")" { return { type: 'fact', table: name.value, fields: args.arguments } }
-  / "~" fact:fact { return { ...fact, negative: true } }
 
 rolling
   = "🎲" _ clause:expr { return { type: 'rolling', clause: clause } }
@@ -48,7 +69,8 @@ expr
   / "(" _ first:expr _ ")" rest:next_expr* { return join(first, rest) }
 
 next_expr
-  = _ operator:operator _ expr:expr { return [operator, expr] }
+  = _ operator:operator _ "(" _ expr:expr _ ")" { return [operator, expr] }
+  / _ operator:operator _ expr:expr { return [operator, expr] }
 
 term
   = function
@@ -58,7 +80,8 @@ term
   / number
 
 function
-  = name:([A-Za-z_]+) "(" _ args:arguments _ ")" { return { type: 'function', function: name.value, arguments: args.arguments } }
+  = name:([A-Za-z_]+) "(" _ args:arguments _ ")" { return functionOrFact(name.join(''), args.arguments) }
+  / "~" fn:function { return { ...fn, negative: true } }
 
 arguments
   = first:expr rest:nextargs* { return { type: 'arguments', arguments: [first].concat(rest) } }

@@ -86,7 +86,7 @@ export type BinaryOperation = {
 
 export type Function = {
   type: "function";
-  function: "floor" | "sum" | "count" | "probability";
+  function: "floor" | "ceil" | "min" | "max" | "sum" | "count" | "Pr";
   arguments: Expression[];
 };
 

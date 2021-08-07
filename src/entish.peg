@@ -2,7 +2,6 @@
   function join(first, rest) {
     if (rest.length === 0) return first;
     const [operator, next] = rest.shift();
-    console.log(operator, first, next);
     switch (operator) {
       case '&':
       case '|':

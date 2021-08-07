@@ -79,9 +79,9 @@ export type Constant = Boolean | String | Number | Roll;
 
 export type BinaryOperation = {
   type: "binary_operation";
+  operator: "+" | "-" | "*" | "/" | "^";
   left: Expression;
   right: Expression;
-  operator: "+" | "-" | "*" | "/" | "^";
 };
 
 export type Function = {
@@ -562,7 +562,7 @@ export default class Interpreter {
               return total + curr.value;
             }, 0),
         };
-      case "probability":
+      case "Pr":
         if (fn.arguments[0].type === "comparison") {
           const roll = this.evaluateExpression(fn.arguments[0].left, binding);
           const operator = fn.arguments[0].operator;

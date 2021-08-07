@@ -2,14 +2,28 @@ import Interpreter from "./entmoot";
 import fs from "fs";
 import marked from "marked";
 
-test("parsing", () => {
+test("parsing single fact", () => {
+  const interpreter = new Interpreter("seed");
+  expect(interpreter.parse("class(Auric, Barbarian).", true)).toStrictEqual([
+    {
+      type: "fact",
+      table: "class",
+      fields: [
+        { type: "string", value: "Auric" },
+        { type: "string", value: "Barbarian" },
+      ],
+    },
+  ]);
+});
+
+test("parsing claim with a few clauses", () => {
   const interpreter = new Interpreter("seed");
   expect(
     interpreter.parse(
       "∴ class(character, Barbarian) & (wielding(character, Axe) ⊕ wielding(character, TwoHandedSword)).",
       true
     )
-  ).toBe([
+  ).toStrictEqual([
     {
       type: "claim",
       clause: {
@@ -60,12 +74,16 @@ test("parsing", () => {
       },
     },
   ]);
+});
+
+test("parsing claim with more complicated clauses", () => {
+  const interpreter = new Interpreter("seed");
   expect(
     interpreter.parse(
       "∴ class(character, Barbarian) & ((carrying(character, AdventuringGear) & carrying(character, DungeonRations, 5)) ⊕ wearing(character, Chainmail)).",
       true
     )
-  ).toBe([
+  ).toStrictEqual([
     {
       type: "claim",
       clause: {
@@ -118,9 +136,13 @@ test("parsing", () => {
       },
     },
   ]);
+});
+
+test("parsing inference", () => {
+  const interpreter = new Interpreter("seed");
   expect(
     interpreter.parse("bonus(character, attr, floor((score-10)/2)) :- attribute(character, attr, score).", true)
-  ).toBe([
+  ).toStrictEqual([
     {
       type: "inference",
       left: {

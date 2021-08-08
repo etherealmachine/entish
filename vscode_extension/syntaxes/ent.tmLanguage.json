@@ -20,7 +20,11 @@
 			"patterns": [
 				{
 					"name": "keyword.control.ent",
-					"match": "∴"
+					"match": "^ergo"
+				},
+				{
+					"name": "keyword.control.ent",
+					"match": "^roll"
 				},
 				{
 					"name": "keyword.control.ent",
@@ -28,7 +32,7 @@
 				},
 				{
 					"name": "keyword.operator.ent",
-					"match": "((\\:\\-)|\\-|\\+|\\/)"
+					"match": "(:-|[&|^*\/+-])"
 				}
 			]
 		},

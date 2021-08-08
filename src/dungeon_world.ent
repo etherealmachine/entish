@@ -14,10 +14,10 @@ attribute(Auric, Wisdom, 9).
 bonus(character, attr, floor((score-10)/2)) :- attribute(character, attr, score).
 
 // Therefore, Auric has a Strength bonus of 3
-∴ bonus(Auric, Strength, 3).
+ergo bonus(Auric, Strength, 3).
 
 // Therefore, Auric has a Wisdom bonus of -1
-∴ bonus(Auric, Wisdom, -1).
+ergo bonus(Auric, Wisdom, -1).
 
 // Full Plate has an armor bonus of 3
 armor(FullPlate, 3).
@@ -55,10 +55,10 @@ wielding(Auric, RoundShield).
 wielding(Auric, TwoHandedSword).
 
 // So Auric is Clumsy, but he's got 4 armor a load of 7, and a max load of 11
-∴ tag(Auric, Clumsy).
-∴ armor(Auric, 4).
-∴ load(Auric, 7).
-∴ max_load(Auric, 11).
+ergo tag(Auric, Clumsy).
+ergo armor(Auric, 4).
+ergo load(Auric, 7).
+ergo max_load(Auric, 11).
 
 ? wielding(Auric, ?) | wearing(Auric, ?).
 
@@ -69,28 +69,28 @@ wielding(Auric, TwoHandedSword).
 move(Auric, FullPlateAndPackingSteel).
 
 // Auric is not Clumsy
-∴ ~tag(Auric, Clumsy).
+ergo ~tag(Auric, Clumsy).
 
 // Rolls and probability - work in progress
 attack(Barbarian, 1d20+2).
 
-∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
+ergo attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
 
 enemy(Orc).
 armor(Orc, 10).
 
 hit(character, weapon, enemy) :- class(character, class) & attack(class, roll) & wielding(character, weapon) & damage(weapon, ?) & enemy(enemy) & armor(enemy, armor) & roll >= armor.
 
-🎲 attack(Barbarian, ?) & enemy(Orc).
+ergo attack(Barbarian, ?) & enemy(Orc).
 
-∴ hit(Auric, TwoHandedSword, Orc).
+ergo hit(Auric, TwoHandedSword, Orc).
 
-🎲 damage(TwoHandedSword, ?).
+roll damage(TwoHandedSword, ?).
 
-∴ damage(TwoHandedSword, 7).
+ergo damage(TwoHandedSword, 7).
 
 max_health(Orc, 10).
 
 health(character, max_health - sum(damage)) :- max_health(character, max_health) & hit(?, weapon, character) & damage(weapon, damage).
 
-∴ health(Orc, 3).
+ergo health(Orc, 3).

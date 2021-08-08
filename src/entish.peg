@@ -2,65 +2,44 @@
   const JUNCTION_OPERATOR = {
     '&': 'conjunction',
     '|': 'disjunction',
-    '⊕': 'exclusive_disjunction',
+    '^': 'exclusive_disjunction',
   };
+  const COMPARISON_OPERATORS = ["!=", "<=", ">=", "=", "<", ">"];
   function join(first, rest) {
-    if (rest.length === 0) return first;
-    const [operator, next] = rest.shift();
-    switch (operator) {
-      case '&':
-      case '|':
-      case '⊕':
-        const clauses = [first, next];
-        while (rest.length > 0 && rest[0][0] === operator) {
-          clauses.push(rest.shift());
-        }
-        if (rest.length > 0) {
-          clauses.push(join(rest.shift(), rest));
+    return rest.reduce(function(left, curr) {
+      const right = curr[2];
+      const operator = curr[0];
+      if (JUNCTION_OPERATOR[operator] !== undefined) {
+        if (left.type === 'fact' && right.type === JUNCTION_OPERATOR[operator]) {
+          right.clauses.unshift(left);
+          return right;
         }
         return {
           type: JUNCTION_OPERATOR[operator],
-          clauses: clauses,
+          clauses: [left, right],
         };
-      case "!=":
-      case ">=":
-      case "<=":
-      case '=':
-      case '>':
-      case '<':
+      }
+      if (COMPARISON_OPERATORS.includes(operator)) {
         return {
           type: 'comparison',
           operator,
-          left: first,
-          right: join(next, rest),
+          left,
+          right,
         };
-      case '+':
-      case '-':
-      case '*':
-      case '/':
-      case '^':
-        return {
-          type: 'binary_operation',
-          operator,
-          left: first,
-          right: join(next, rest),
-        };
-    }
-    throw new Exception(`unknown operator ${operator}`);
+      }
+      return {
+        type: 'binary_operation',
+        operator,
+        left,
+        right,
+      };
+    }, first);
   }
   function flatten(arr) {
     return arr.reduce((acc, cur) => acc.concat(Array.isArray(cur) ? flatten(cur) : cur), []);
   }
   function parseNumber(n) {
     return parseFloat(flatten(n).filter(d => d).join(''));
-  }
-  const BUILT_IN_FUNCTIONS = ["floor", "ceil", "min", "max", "sum", "count", "Pr"];
-  function functionOrFact(name, args) {
-    if (BUILT_IN_FUNCTIONS.indexOf(name) !== -1) {
-      return { type: 'function', function: name, arguments: args };
-    } else {
-      return { type: 'fact', table: name, fields: args };
-    }
   }
 }
 
@@ -71,7 +50,7 @@ statement
   = comment:comment "\n"? { return comment }
   / inference:inference "." { return inference }
   / claim:claim "." { return claim }
-  / fn:function "." { return fn }
+  / fact:fact "." { return fact }
   / roll:rolling "." { return roll}
   / query:query "." { return query }
   / __ { return null }
@@ -81,45 +60,63 @@ comment
   / "/*" comment:(!"*/" .)* "*/" { return { type: 'comment', value: comment.flat().join('').trim() }}
 
 inference
-  = left:function _ ":-" _ right:expr { return { type: 'inference', left, right } }
+  = left:fact _ ":-" _ right:clause { return { type: 'inference', left, right } }
 
 claim
-  = "∴" _ clause:expr { return { type: 'claim', clause: clause } }
+  = "ergo " _ clause:clause { return { type: 'claim', clause: clause } }
 
 rolling
-  = "🎲" _ clause:expr { return { type: 'rolling', clause: clause } }
+  = "roll " _ clause:clause { return { type: 'rolling', clause: clause } }
 
 query
-  = "?" _ query:expr { return { type: 'query', clause: query } }
+  = "?" _ query:clause { return { type: 'query', clause: query } }
 
-expr
-  = first:term rest:next_expr* { return join(first, rest) }
-  / "(" _ first:expr _ ")" rest:next_expr* { return join(first, rest) }
+clause
+  = first:comparison _ rest:(op:("&" / "|" / "^") _ clause)+ { return join(first, rest) }
+  / comparison
 
-next_expr
-  = _ operator:operator _ "(" _ expr:expr _ ")" { return [operator, expr] }
-  / _ operator:operator _ expr:expr { return [operator, expr] }
+comparison
+  = left:additive _ operator:("!=" / "<=" / ">=" / "=" / "<" / ">") _ right:additive { return { type: 'comparison', operator, left, right } }
+  / additive
 
-term
+additive
+  = first:multiplicative _ rest:(op:("+" / "-") _ multiplicative)+ { return join(first, rest) }
+  / multiplicative
+
+multiplicative
+  = first:primary _ rest:(op:("*" / "/") _ primary)+ { return join(first, rest) }
+  / primary
+
+primary
   = function
+  / fact
   / string
   / variable
   / roll
   / number
+  / "(" _ expr:clause _ ")" { return expr }
+
+fact
+  = name:([a-z][a-z_]+) "(" _ args:arguments _ ")" { return { type: 'fact', table: name[0] + name[1].join(''), fields: args.arguments } }
+  / "~" fact:fact { return { ...fact, negative: true } }
 
 function
-  = name:([A-Za-z_]+) "(" _ args:arguments _ ")" { return functionOrFact(name.join(''), args.arguments) }
-  / "~" fn:function { return { ...fn, negative: true } }
+  = fn:builtin_function "(" _ args:arguments _ ")" { return { type: 'function', function: fn, arguments: args.arguments } }
+
+builtin_function
+  = "floor"
+  / "ceil"
+  / "min"
+  / "max"
+  / "sum"
+  / "count"
+  / "Pr"
 
 arguments
-  = first:expr rest:nextargs* { return { type: 'arguments', arguments: [first].concat(rest) } }
+  = first:comparison rest:nextargs* { return { type: 'arguments', arguments: [first].concat(rest) } }
 
 nextargs
-  = _ "," _ expr:expr { return expr }
-
-operator
-  = op:("!=" / ">=" / "<=") { return op }
-  / op:[=!><&|⊕+\-*/] { return op }
+  = _ "," _ expr:comparison { return expr }
 
 string
   = name:([A-Z][A-Za-z_]+) { return { type: 'string', value: name[0] + name[1].join('') } }

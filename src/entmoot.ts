@@ -2,6 +2,7 @@ import peg from "pegjs";
 import staticGrammar from "./entish.peg";
 import seedrandom from "seedrandom";
 import Tracer from "pegjs-backtrace";
+import chalk from "chalk";
 
 let grammar: string;
 if (staticGrammar === "entish.peg") {
@@ -24,6 +25,7 @@ export type Fact = {
   table: string;
   fields: Expression[];
   negative?: boolean;
+  ground?: Fact | false;
 };
 
 export type Inference = {
@@ -176,39 +178,24 @@ export default class Interpreter {
     this.rng = seedrandom(seed);
   }
 
-  exec(statement: Statement) {
-    let results;
+  exec(statement: Statement): Fact[] {
     switch (statement.type) {
       case "comment":
-        return;
+        return [];
       case "fact":
-        this.loadFact(statement);
-        console.log(`added ${factToString(statement)}`);
-        return;
+        return this.loadFact(statement);
       case "inference":
-        console.log(`inferring ${inferenceToString(statement)}`);
-        this.loadInference(statement);
-        return;
+        return this.loadInference(statement);
       case "claim":
-        console.log(`testing ${claimToString(statement)}`);
-        if (!this.testClaim(statement)) {
-          throw new Entception(`false claim: ${claimToString(statement)}`);
-        } else {
-          console.log(`verified ${claimToString(statement)}`);
+        const facts = this.query(statement.clause);
+        if (facts.length === 0) {
+          throw new Entception(`unable to verify ${claimToString(statement)}`);
         }
-        return;
+        return facts;
       case "query":
-        console.log(`query: ${queryToString(statement)}`);
-        results = this.query(statement);
-        if (results.length === 0) console.warn("no matching facts found");
-        results.forEach((f) => console.log(`found: ${factToString(f)}`));
-        return;
+        return this.query(statement.clause);
       case "rolling":
-        console.log(`rolling: ${rollingToString(statement)}`);
-        results = this.roll(statement);
-        if (results.length === 0) console.warn("no rolls found");
-        results.forEach((f) => console.log(`rolled: ${factToString(f)}`));
-        return;
+        return this.roll(statement);
       default:
         throw new TODO(`unhandled statement type: ${(statement as any).type}`);
     }
@@ -220,8 +207,15 @@ export default class Interpreter {
       return this.parser.parse(input, { tracer: tracer }).filter((x: any) => x);
     } catch (e: any) {
       if (e instanceof this.parser.SyntaxError) {
-        console.log(input.slice(e.location.start.offset - 10, e.location.end.offset + 10));
-        console.log(tracer.getBacktraceString());
+        if (tracer.getBacktraceString) {
+          console.log(tracer.getBacktraceString());
+        }
+        const line = input.split('\n')[e.location.start.line - 1];
+        console.log(
+          chalk.green(line.slice(0, e.location.start.column)) +
+          chalk.red(line[e.location.end.column - 1]) +
+          line.slice(e.location.end.column)
+        );
       }
       throw e;
     } finally {
@@ -233,10 +227,6 @@ export default class Interpreter {
     this.traceEvents.push(event);
   }
 
-  getBacktraceString() {
-    return "TODO";
-  }
-
   load(input: string) {
     const statements = this.parse(input);
     for (let line in statements) {
@@ -245,12 +235,12 @@ export default class Interpreter {
     }
   }
 
-  loadFact(fact: Fact) {
+  loadFact(fact: Fact): Fact[] {
     if (fact.negative) {
       this.tables[fact.table] = this.tables[fact.table].filter(
         (row) => !row.every((col, i) => equal(fact.fields[i], col))
       );
-      return;
+      return [fact];
     }
     if (!this.tables[fact.table]) {
       this.tables[fact.table] = [];
@@ -260,12 +250,13 @@ export default class Interpreter {
     }
     if (!this.tables[fact.table].some((e) => e.every((f, i) => equal(f, fact.fields[i])))) {
       this.tables[fact.table].push(fact.fields as Constant[]);
-      this.inferences.forEach((i) => this.loadInference(i, true));
+      return [fact].concat(this.inferences.map((i) => this.loadInference(i, true)).flat());
     }
+    return [fact];
   }
 
-  query(query: Query): Fact[] {
-    return this.search(query.clause)
+  query(clause: Clause): Fact[] {
+    return this.search(clause)
       .map((b) => b.facts)
       .flat();
   }
@@ -285,7 +276,7 @@ export default class Interpreter {
     return newFacts;
   }
 
-  loadInference(inference: Inference, recursive: boolean = false) {
+  loadInference(inference: Inference, recursive: boolean = false): Fact[] {
     const bindings = this.aggregate(inference.left, this.search(inference.right));
     const facts: Fact[] = bindings.map((binding) => {
       return {
@@ -295,10 +286,11 @@ export default class Interpreter {
         fields: inference.left.fields.map((f) => this.evaluateExpression(f, binding)),
       };
     });
-    facts.forEach((f) => this.loadFact(f));
+    facts.concat(facts.map((f) => this.loadFact(f)).flat());
     if (!recursive && !this.inferences.some((inf) => inferenceToString(inf) === inferenceToString(inference))) {
       this.inferences.push(inference);
     }
+    return facts;
   }
 
   search(clause: Clause): Binding[] {
@@ -321,7 +313,14 @@ export default class Interpreter {
         // disjunction concatenates bindings
         return clause.clauses.map((clause) => this.search(clause)).flat();
       case "exclusive_disjunction":
-        throw new TODO();
+        const matches = clause.clauses
+          .map((clause) => this.search(clause))
+          .flat()
+          .filter((b) => b.facts.length > 0);
+        if (matches.length === 1) {
+          return matches;
+        }
+        return [];
       case "comparison":
         return [
           {
@@ -386,41 +385,32 @@ export default class Interpreter {
   }
 
   bind(constants: Constant[], clause: Fact): Binding | undefined {
-    try {
-      const bindings = constants.map((value, i) => {
-        const field = clause.fields[i];
-        switch (field.type) {
-          case "string":
-          case "number":
-          case "roll":
-            if (!equal(value, field)) {
-              throw new BindingMismatch(`binding mismatch: ${value} != ${field}`);
-            }
-            return [`${clause.table}[${i}]`, value];
-          case "variable":
-            if (field.value === "?") {
-              return [`${clause.table}[${i}]`, value];
-            }
-            return [field.value, value];
-          default:
-            throw new Entception(`can't handle ${field.type} ${expressionToString(field)} in clause`);
-        }
-      });
-      return {
-        facts: [
-          {
-            type: "fact",
-            table: clause.table,
-            fields: constants,
-          },
-        ],
-        values: Object.fromEntries(bindings),
-        comparisons: [],
-      };
-    } catch (e) {
-      if (e instanceof BindingMismatch) return undefined;
-      throw e;
+    const entries: [string, Constant][] = [];
+    for (let i in constants) {
+      const value = constants[i];
+      const field = clause.fields[i];
+      if (field.type === "variable" && field.value !== "?") {
+        entries.push([field.value, value]);
+      } else if (
+        (field.type === "string" || field.type === "number" || field.type === "roll") &&
+        !equal(value, field)
+      ) {
+        clause.ground = false;
+        return undefined;
+      }
     }
+    const bindings = Object.fromEntries(entries);
+    const ground: Fact = {
+      type: "fact",
+      table: clause.table,
+      fields: constants,
+    };
+    clause.ground = ground;
+    return {
+      facts: [ground],
+      values: bindings,
+      comparisons: [],
+    };
   }
 
   compare(comparison: Comparison, binding: Binding): boolean {
@@ -493,42 +483,6 @@ export default class Interpreter {
       type: "number",
       value: total,
     };
-  }
-
-  testClaim(claim: Claim): boolean {
-    if (claim.clause.type === "fact") {
-      const table = this.tables[claim.clause.table];
-      if (table) {
-        for (const row of table) {
-          if (row.length !== claim.clause.fields.length) continue;
-          if (
-            claim.clause.fields.every(
-              (field, i) => field.type === row[i].type && JSON.stringify(field) === JSON.stringify(row[i])
-            )
-          ) {
-            return !claim.clause.negative;
-          }
-        }
-      }
-      return !!claim.clause.negative;
-    } else if (claim.clause.type === "conjunction") {
-      const bindings = this.search(claim.clause);
-      return bindings.length > 0;
-    } else if (claim.clause.type === "exclusive_disjunction") {
-      return (
-        claim.clause.clauses.reduce((count, clause) => {
-          return count + (this.testClaim({ type: "claim", clause }) ? 1 : 0);
-        }, 0) === 1
-      );
-    } else if (claim.clause.type === "comparison") {
-      const result = this.evaluateExpression(claim.clause, {
-        facts: [],
-        values: {},
-        comparisons: [],
-      });
-      if (result.type === "boolean") return result.value;
-    }
-    throw new Entception(`can't verify claims of type ${claim.clause.type}`);
   }
 
   evaluateFunction(fn: Function, binding: Binding): Constant {
@@ -704,7 +658,7 @@ export function statementToString(stmt: Statement): string {
     case "comment":
       return `// ${stmt.value}`;
     default:
-      return `[${stmt.type}]`;
+      return JSON.stringify(stmt, null, 2);
   }
 }
 
@@ -713,11 +667,17 @@ export function inferenceToString(inf: Inference): string {
 }
 
 export function queryToString(q: Query): string {
-  return `${clauseToString(q.clause)}?`;
+  return `? ${clauseToString(q.clause)}`;
 }
 
 export function factToString(fact: Fact): string {
-  return `${fact.negative ? "~" : ""}${fact.table}(${fact.fields.map((e) => expressionToString(e)).join(", ")})`;
+  const s = `${fact.negative ? "~" : ""}${fact.table}(${fact.fields.map((e) => expressionToString(e)).join(", ")})`;
+  if (fact.ground) {
+    return chalk.green(s);
+  } else if (fact.ground === false) {
+    return chalk.red(s);
+  }
+  return s;
 }
 
 export function clauseToString(clause: Clause): string {
@@ -732,6 +692,8 @@ export function clauseToString(clause: Clause): string {
       return "(" + clause.clauses.map((c) => clauseToString(c)).join(" ⊕ ") + ")";
     case "comparison":
       return comparisonToString(clause);
+    default:
+      return JSON.stringify(clause, null, 2);
   }
 }
 
@@ -748,43 +710,46 @@ export function expressionToString(expr: Expression): string {
     case "variable":
       return expr.value;
     case "binary_operation":
-      return `${expressionToString(expr.left)} ${expr.operator} ${expressionToString(expr.right)}`;
+      return `${expressionToString(expr.left)} ${expr.operator} ${expressionToString(expr.right)} `;
     case "function":
-      return `${expr.function}(${expr.arguments.map((e) => expressionToString(e)).join(", ")})`;
+      return `${expr.function} (${expr.arguments.map((e) => expressionToString(e)).join(", ")})`;
     case "comparison":
       return comparisonToString(expr);
+    default:
+      return JSON.stringify(expr, null, 2);
   }
 }
 
 export function comparisonToString(comparison: Comparison): string {
-  return `${expressionToString(comparison.left)} ${comparison.operator} ${expressionToString(comparison.right)}`;
+  return `${expressionToString(comparison.left)} ${comparison.operator} ${expressionToString(comparison.right)} `;
 }
 
 export function rollToString(roll: Roll): string {
-  const mod = roll.modifier > 0 ? `+${roll.modifier}` : roll.modifier < 0 ? `-${roll.modifier}` : "";
-  return `${roll.count}d${roll.die}${mod}`;
+  const mod = roll.modifier > 0 ? `+ ${roll.modifier} ` : roll.modifier < 0 ? ` - ${roll.modifier} ` : "";
+  return `${roll.count} d${roll.die} ${mod} `;
 }
 
 export function claimToString(claim: Claim): string {
-  return `∴ ${clauseToString(claim.clause)}`;
+  return `ergo ${clauseToString(claim.clause)} `;
 }
 
 export function rollingToString(roll: Rolling): string {
-  return `🎲 ${clauseToString(roll.clause)}`;
+  return `roll ${clauseToString(roll.clause)} `;
 }
 
 function main() {
   const readline = require("readline");
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
   });
 
-  const interpreter = new Interpreter('1234');
+  const interpreter = new Interpreter("1234");
 
   function handleInput(input: string) {
-    const statements = interpreter.parse(input);
-    statements.forEach(stmt => {
+    const statements = interpreter.parse(input, true);
+    console.log(JSON.stringify(statements[0], null, 2));
+    statements.forEach((stmt) => {
       interpreter.exec(stmt);
     });
     rl.question("> ", handleInput);
@@ -797,6 +762,6 @@ function main() {
   });
 }
 
-if (typeof window === 'undefined') {
+if (typeof window === "undefined") {
   main();
 }

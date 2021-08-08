@@ -35,14 +35,18 @@
     "react-scripts": "4.0.3",
     "seedrandom": "^3.0.5",
     "shx": "^0.3.3",
+    "ts-loader": "^8",
     "typescript": "^4.1.2",
-    "web-vitals": "^1.0.1"
+    "web-vitals": "^1.0.1",
+    "webpack": "4.44.2",
+    "webpack-node-externals": "^3.0.0"
   },
   "scripts": {
     "start": "react-app-rewired start",
     "build": "react-app-rewired build && shx rm -rf docs && shx mv build docs",
     "test": "react-app-rewired test",
-    "eject": "react-app-rewired eject"
+    "eject": "react-app-rewired eject",
+    "console": "webpack --config webpack.config.js && node build/entmoot.js"
   },
   "eslintConfig": {
     "extends": [
@@ -61,5 +65,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "webpack-cli": "^4.7.2"
   }
 }

@@ -124,11 +124,11 @@ export type Binding = {
   group?: Binding[];
 };
 
-export class Entception extends Error {}
+export class Entception extends Error { }
 
-export class BindingMismatch extends Error {}
+export class BindingMismatch extends Error { }
 
-export class TODO extends Error {}
+export class TODO extends Error { }
 
 function groupBy<T>(array: T[], f: (o: T) => string) {
   const groups: { [key: string]: T[] } = {};
@@ -771,4 +771,32 @@ export function claimToString(claim: Claim): string {
 
 export function rollingToString(roll: Rolling): string {
   return `🎲 ${clauseToString(roll.clause)}`;
+}
+
+function main() {
+  const readline = require("readline");
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  const interpreter = new Interpreter('1234');
+
+  function handleInput(input: string) {
+    const statements = interpreter.parse(input);
+    statements.forEach(stmt => {
+      interpreter.exec(stmt);
+    });
+    rl.question("> ", handleInput);
+  }
+
+  rl.question("> ", handleInput);
+
+  rl.on("close", function () {
+    process.exit(0);
+  });
+}
+
+if (typeof window === 'undefined') {
+  main();
 }

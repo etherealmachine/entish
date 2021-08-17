@@ -324,12 +324,88 @@ test("parsing claim with an expression", () => {
   ]);
 });
 
+test("parsing long expression", () => {
+  const interpreter = new Interpreter("seed");
+  expect(interpreter.parse("ergo 1+2+3 = 6 & 1 < 2 & 2 < 3.", true)).toStrictEqual([
+    {
+      type: "claim",
+      clause: {
+        type: "conjunction",
+        clauses: [
+          {
+            type: "comparison",
+            operator: "=",
+            left: {
+              type: "binary_operation",
+              operator: "+",
+              left: {
+                type: "binary_operation",
+                operator: "+",
+                left: {
+                  type: "number",
+                  value: 1,
+                },
+                right: {
+                  type: "number",
+                  value: 2,
+                }
+              },
+              right: {
+                type: "number",
+                value: 3,
+              },
+            },
+            right: {
+              type: "number",
+              value: 6,
+            },
+          },
+          {
+            type: "comparison",
+            operator: "<",
+            left: {
+              type: "number",
+              value: 1,
+            },
+            right: {
+              type: "number",
+              value: 2,
+            },
+          },
+          {
+            type: "comparison",
+            operator: "<",
+            left: {
+              type: "number",
+              value: 2,
+            },
+            right: {
+              type: "number",
+              value: 3,
+            },
+          },
+        ]
+      },
+    },
+  ]);
+});
+
 test("basic facts and claims", () => {
   const interpreter = new Interpreter("seed");
   interpreter.load("class(Auric, Barbarian).");
   interpreter.load("carrying(Auric, AdventuringGear).");
   interpreter.load("tag(character, Adventurer) :- class(character, ?) & carrying(character, AdventuringGear).");
   interpreter.load("ergo tag(Auric, Adventurer).")
+});
+
+test("negating facts and claims", () => {
+  const interpreter = new Interpreter("seed");
+  interpreter.load("class(Auric, Barbarian).");
+  interpreter.load("carrying(Auric, AdventuringGear).");
+  interpreter.load("tag(Auric, Commoner).");
+  interpreter.load("tag(character, Adventurer) :- class(character, ?) & carrying(character, AdventuringGear).");
+  interpreter.load("~tag(character, Commoner) :- tag(character, Adventurer).");
+  interpreter.load("ergo ~tag(Auric, Commoner).")
 });
 
 test("load and exec rules from file", () => {
@@ -355,6 +431,12 @@ test("load and exec markdown rules for dungeon world", () => {
       return [];
     })
     .flat();
+  interpreter.load("attribute(Auric, Strength, 16).");
+  interpreter.load("attribute(Auric, Dexterity, 14).");
+  interpreter.load("attribute(Auric, Constitution, 14).");
+  interpreter.load("attribute(Auric, Intelligence, 10).");
+  interpreter.load("attribute(Auric, Wisdom, 8).");
+  interpreter.load("attribute(Auric, Charisma, 11).");
   interpreter.load("class(Auric, Barbarian).");
   interpreter.load("carrying(Auric, AdventuringGear).");
   interpreter.load("carrying(Auric, DungeonRations, 5).");

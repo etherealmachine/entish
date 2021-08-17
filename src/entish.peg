@@ -10,7 +10,7 @@
       const right = curr[2];
       const operator = curr[0];
       if (JUNCTION_OPERATOR[operator] !== undefined) {
-        if (left.type === 'fact' && right.type === JUNCTION_OPERATOR[operator]) {
+        if ((left.type === 'fact' || left.type === 'comparison') && right.type === JUNCTION_OPERATOR[operator]) {
           right.clauses.unshift(left);
           return right;
         }

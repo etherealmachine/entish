@@ -15,12 +15,12 @@ You get up to 73 points to distribution amongst your 6 attributes.
 Each attribute can be between 5 and 16.
 
 ```entish
-ergo attribute(?, Strength, str) &
-	   attribute(?, Dexterity, dex) &
-     attribute(?, Constitution, con) &
-	   attribute(?, Intelligence, int) &
-	   attribute(?, Wisdom, wis) &
-	   attribute(?, Charisma, cha) &
+ergo attribute(character, Strength, str) &
+	   attribute(character, Dexterity, dex) &
+     attribute(character, Constitution, con) &
+	   attribute(character, Intelligence, int) &
+	   attribute(character, Wisdom, wis) &
+	   attribute(character, Charisma, cha) &
 	   (str+dex+con+int+wis+cha) <= 73 &
 	   str <= 16 & dex <= 16 & con <= 16 & int <= 16 & wis <= 16 & cha <= 16 &
 	   str >= 5 & dex >= 5 & con >= 5 & int >= 5 & wis >= 5 & cha >= 5.

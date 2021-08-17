@@ -87,10 +87,10 @@ ergo hit(Auric, TwoHandedSword, Orc).
 
 roll damage(TwoHandedSword, ?).
 
-ergo damage(TwoHandedSword, 7).
+ergo damage(TwoHandedSword, 5).
 
 max_health(Orc, 10).
 
 health(character, max_health - sum(damage)) :- max_health(character, max_health) & hit(?, weapon, character) & damage(weapon, damage).
 
-ergo health(Orc, 3).
+ergo health(Orc, 5).

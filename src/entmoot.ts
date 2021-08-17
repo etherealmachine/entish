@@ -25,7 +25,6 @@ export type Fact = {
   table: string;
   fields: Expression[];
   negative?: boolean;
-  ground?: Fact | false;
 };
 
 export type Inference = {
@@ -188,7 +187,8 @@ export default class Interpreter {
         return this.loadInference(statement);
       case "claim":
         const facts = this.query(statement.clause);
-        if (facts.length === 0) {
+        const negative = !!(statement.clause.type === 'fact' && statement.clause.negative);
+        if (negative !== (facts.length === 0)) {
           throw new Entception(`unable to verify ${claimToString(statement)}`);
         }
         return facts;
@@ -386,8 +386,9 @@ export default class Interpreter {
 
   bind(constants: Constant[], clause: Fact): Binding | undefined {
     const entries: [string, Constant][] = [];
-    for (let i in constants) {
+    for (let i = 0; i < constants.length; i++) {
       const value = constants[i];
+      if (i >= clause.fields.length) break;
       const field = clause.fields[i];
       if (field.type === "variable" && field.value !== "?") {
         entries.push([field.value, value]);
@@ -395,19 +396,16 @@ export default class Interpreter {
         (field.type === "string" || field.type === "number" || field.type === "roll") &&
         !equal(value, field)
       ) {
-        clause.ground = false;
         return undefined;
       }
     }
     const bindings = Object.fromEntries(entries);
-    const ground: Fact = {
-      type: "fact",
-      table: clause.table,
-      fields: constants,
-    };
-    clause.ground = ground;
     return {
-      facts: [ground],
+      facts: [{
+        type: "fact",
+        table: clause.table,
+        fields: constants,
+      }],
       values: bindings,
       comparisons: [],
     };
@@ -671,13 +669,7 @@ export function queryToString(q: Query): string {
 }
 
 export function factToString(fact: Fact): string {
-  const s = `${fact.negative ? "~" : ""}${fact.table}(${fact.fields.map((e) => expressionToString(e)).join(", ")})`;
-  if (fact.ground) {
-    return chalk.green(s);
-  } else if (fact.ground === false) {
-    return chalk.red(s);
-  }
-  return s;
+  return `${fact.negative ? "~" : ""}${fact.table}(${fact.fields.map((e) => expressionToString(e)).join(", ")})`;
 }
 
 export function clauseToString(clause: Clause): string {
@@ -710,7 +702,7 @@ export function expressionToString(expr: Expression): string {
     case "variable":
       return expr.value;
     case "binary_operation":
-      return `${expressionToString(expr.left)} ${expr.operator} ${expressionToString(expr.right)} `;
+      return `${expressionToString(expr.left)} ${expr.operator} ${expressionToString(expr.right)}`;
     case "function":
       return `${expr.function} (${expr.arguments.map((e) => expressionToString(e)).join(", ")})`;
     case "comparison":
@@ -721,20 +713,20 @@ export function expressionToString(expr: Expression): string {
 }
 
 export function comparisonToString(comparison: Comparison): string {
-  return `${expressionToString(comparison.left)} ${comparison.operator} ${expressionToString(comparison.right)} `;
+  return `${expressionToString(comparison.left)} ${comparison.operator} ${expressionToString(comparison.right)}`;
 }
 
 export function rollToString(roll: Roll): string {
-  const mod = roll.modifier > 0 ? `+ ${roll.modifier} ` : roll.modifier < 0 ? ` - ${roll.modifier} ` : "";
-  return `${roll.count} d${roll.die} ${mod} `;
+  const mod = roll.modifier > 0 ? `+${roll.modifier}` : roll.modifier < 0 ? `-${roll.modifier}` : "";
+  return `${roll.count}d${roll.die}${mod}`;
 }
 
 export function claimToString(claim: Claim): string {
-  return `ergo ${clauseToString(claim.clause)} `;
+  return `ergo ${clauseToString(claim.clause)}`;
 }
 
 export function rollingToString(roll: Rolling): string {
-  return `roll ${clauseToString(roll.clause)} `;
+  return `roll ${clauseToString(roll.clause)}`;
 }
 
 function main() {

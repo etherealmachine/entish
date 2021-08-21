@@ -416,21 +416,7 @@ test("load and exec rules from file", () => {
 
 test("load and exec markdown rules for dungeon world", () => {
   const interpreter = new Interpreter("seed");
-  const statements = fs
-    .readdirSync("./src/rules/dungeon_world")
-    .map((filename) => {
-      if (filename.endsWith(".md")) {
-        const markdown = new DOMParser().parseFromString(
-          marked(fs.readFileSync("./src/rules/dungeon_world/" + filename).toString()),
-          "text/html"
-        );
-        return Array.from(markdown.querySelectorAll("code.language-entish"))
-          .map((node) => (node.textContent ? interpreter.parse(node.textContent, true) : []))
-          .flat();
-      }
-      return [];
-    })
-    .flat();
+
   interpreter.load("attribute(Auric, Strength, 16).");
   interpreter.load("attribute(Auric, Dexterity, 14).");
   interpreter.load("attribute(Auric, Constitution, 14).");
@@ -442,5 +428,10 @@ test("load and exec markdown rules for dungeon world", () => {
   interpreter.load("carrying(Auric, DungeonRations, 5).");
   interpreter.load("wielding(Auric, Dagger).");
   interpreter.load("wielding(Auric, Axe).");
-  statements.forEach((stmt) => interpreter.exec(stmt));
+
+  fs.readdirSync("./src/rules/dungeon_world").forEach(filename => {
+    if (filename.endsWith(".md")) {
+      interpreter.loadFromFile("./src/rules/dungeon_world/" + filename);
+    }
+  });
 });

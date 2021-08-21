@@ -1,9 +1,15 @@
-import fs from 'fs';
+import chalk from "chalk";
+import fs, { stat } from 'fs';
+import marked from "marked";
 import peg from "pegjs";
 import staticGrammar from "./entish.peg";
 import seedrandom from "seedrandom";
 import Tracer from "pegjs-backtrace";
-import chalk from "chalk";
+
+if (typeof document === 'undefined') {
+  const { JSDOM } = require('jsdom');
+  globalThis.document = (new JSDOM()).window.document;
+}
 
 let grammar: string;
 if (staticGrammar === "entish.peg") {
@@ -169,13 +175,16 @@ type TraceEvent = {
 };
 
 export default class Interpreter {
+  strict: boolean;
   parser: PEG.Parser;
   traceEvents: TraceEvent[] = [];
   tables: { [key: string]: Constant[][] } = {};
   inferences: Inference[] = [];
+  claims: Claim[] = [];
   rng: () => number;
 
-  constructor(seed: string) {
+  constructor(seed: string, strict: boolean = true) {
+    this.strict = strict;
     this.parser = peg.generate(grammar, { trace: true });
     this.rng = seedrandom(seed);
   }
@@ -189,10 +198,17 @@ export default class Interpreter {
       case "inference":
         return this.loadInference(statement);
       case "claim":
+        this.claims.push(statement);
         const facts = this.query(statement.clause);
         const negative = !!(statement.clause.type === 'fact' && statement.clause.negative);
         if (negative !== (facts.length === 0)) {
-          throw new Entception(`unable to verify ${claimToString(statement)}`);
+          if (this.strict) {
+            throw new Entception(`unable to verify ${claimToString(statement)}`);
+          }
+          return {
+            type: "boolean",
+            value: false,
+          };
         }
         return facts;
       case "query":
@@ -224,6 +240,21 @@ export default class Interpreter {
     for (let line in statements) {
       const statement = statements[line];
       this.exec(statement);
+    }
+  }
+
+  loadFromFile(filename: string) {
+    if (filename.endsWith(".ent")) {
+      const rules = fs.readFileSync(filename).toString();
+      this.load(rules);
+    } else if (filename.endsWith(".md")) {
+      const markdown = fs.readFileSync(filename).toString();
+      const block = document.createElement("div");
+      block.innerHTML = marked(markdown);
+      Array.from(block.querySelectorAll("code.language-entish"))
+        .forEach(node => { if (node.textContent) this.load(node.textContent); });
+    } else {
+      throw new Entception(`unknown file type ${filename.split('.').pop()}`)
     }
   }
 
@@ -529,8 +560,7 @@ export default class Interpreter {
         if (fn.arguments[0].type !== 'string') {
           throw new Entception(`expected load(<filename:string)>, got ${fn.arguments[0].type}`);
         }
-        const rules = fs.readFileSync(fn.arguments[0].value).toString();
-        this.load(rules);
+        this.loadFromFile(fn.arguments[0].value);
         return {
           type: 'boolean',
           value: true,
@@ -740,7 +770,7 @@ function main() {
     output: process.stdout,
   });
 
-  const interpreter = new Interpreter("1234");
+  const interpreter = new Interpreter("1234", false);
 
   function handleInput(input: string) {
     try {
@@ -757,9 +787,9 @@ function main() {
       if ('location' in e) {
         const line = input.split('\n')[e.location.start.line - 1];
         console.log(e.toString());
-        const left = line.slice(0, e.location.start.column);
-        const mid = line[e.location.end.column - 1];
-        const right = line.slice(e.location.end.column);
+        const left = line.slice(0, e.location.start.column - 1);
+        const mid = line[e.location.start.column - 1];
+        const right = line.slice(e.location.start.column);
         console.log(chalk.green(left || '') + chalk.red(mid || '') + (right || ''));
       } else {
         console.error(e);

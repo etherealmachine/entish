@@ -1,14 +1,14 @@
 import chalk from "chalk";
-import fs, { stat } from 'fs';
+import fs, { stat } from "fs";
 import marked from "marked";
 import peg from "pegjs";
 import staticGrammar from "./entish.peg";
 import seedrandom from "seedrandom";
 import Tracer from "pegjs-backtrace";
 
-if (typeof document === 'undefined') {
-  const { JSDOM } = require('jsdom');
-  globalThis.document = (new JSDOM()).window.document;
+if (typeof document === "undefined") {
+  const { JSDOM } = require("jsdom");
+  globalThis.document = new JSDOM().window.document;
 }
 
 let grammar: string;
@@ -32,6 +32,7 @@ export type Fact = {
   table: string;
   fields: Expression[];
   negative?: boolean;
+  matches?: Fact[];
 };
 
 export type Inference = {
@@ -132,13 +133,13 @@ export type Binding = {
   group?: Binding[];
 };
 
-export class Entception extends Error { }
+export class Entception extends Error {}
 
 export class BindingMismatch extends Error {
-  type: string = 'BindingMismatch'
+  type: string = "BindingMismatch";
 }
 
-export class TODO extends Error { }
+export class TODO extends Error {}
 
 function groupBy<T>(array: T[], f: (o: T) => string) {
   const groups: { [key: string]: T[] } = {};
@@ -155,6 +156,10 @@ function equal(expr1: Expression, expr2: Expression): boolean {
   if (expr1.type === "roll" && expr2.type === "roll") return rollToString(expr1) === rollToString(expr2);
   if ("value" in expr1 && "value" in expr2) return expr1.value === expr2.value;
   throw new Entception(`incomparable types: ${expr1.type} and ${expr2.type}`);
+}
+
+function isConstant(expr: Expression): expr is Constant {
+  return ["string", "number", "boolean", "roll"].includes(expr.type);
 }
 
 type TraceEvent = {
@@ -178,7 +183,7 @@ export default class Interpreter {
   strict: boolean;
   parser: PEG.Parser;
   traceEvents: TraceEvent[] = [];
-  tables: { [key: string]: Constant[][] } = {};
+  tables: { [key: string]: Fact[] } = {};
   inferences: Inference[] = [];
   claims: Claim[] = [];
   rng: () => number;
@@ -200,7 +205,7 @@ export default class Interpreter {
       case "claim":
         this.claims.push(statement);
         const facts = this.query(statement.clause);
-        const negative = !!(statement.clause.type === 'fact' && statement.clause.negative);
+        const negative = !!(statement.clause.type === "fact" && statement.clause.negative);
         if (negative !== (facts.length === 0)) {
           if (this.strict) {
             throw new Entception(`unable to verify ${claimToString(statement)}`);
@@ -251,28 +256,29 @@ export default class Interpreter {
       const markdown = fs.readFileSync(filename).toString();
       const block = document.createElement("div");
       block.innerHTML = marked(markdown);
-      Array.from(block.querySelectorAll("code.language-entish"))
-        .forEach(node => { if (node.textContent) this.load(node.textContent); });
+      Array.from(block.querySelectorAll("code.language-entish")).forEach((node) => {
+        if (node.textContent) this.load(node.textContent);
+      });
     } else {
-      throw new Entception(`unknown file type ${filename.split('.').pop()}`)
+      throw new Entception(`unknown file type ${filename.split(".").pop()}`);
     }
   }
 
   loadFact(fact: Fact): Fact[] {
     if (fact.negative) {
       this.tables[fact.table] = this.tables[fact.table].filter(
-        (row) => !row.every((col, i) => equal(fact.fields[i], col))
+        (fact) => !fact.fields.every((col, i) => equal(fact.fields[i], col))
       );
       return [fact];
     }
     if (!this.tables[fact.table]) {
       this.tables[fact.table] = [];
     }
-    if (fact.fields.some((expr) => expr.type !== "string" && expr.type !== "number" && expr.type !== "roll")) {
+    if (fact.fields.some((expr) => !isConstant(expr))) {
       throw new Entception(`facts must be grounded with strings or numbers: ${factToString(fact)}`);
     }
-    if (!this.tables[fact.table].some((e) => e.every((f, i) => equal(f, fact.fields[i])))) {
-      this.tables[fact.table].push(fact.fields as Constant[]);
+    if (!this.tables[fact.table].some((fact) => fact.fields.every((f, i) => equal(f, fact.fields[i])))) {
+      this.tables[fact.table].push(fact);
       return [fact].concat(this.inferences.map((i) => this.loadInference(i, true)).flat());
     }
     return [fact];
@@ -317,11 +323,14 @@ export default class Interpreter {
   }
 
   search(clause: Clause): Binding[] {
+    if (clause.type === "fact" && clause.matches === undefined) {
+      clause.matches = [];
+    }
     switch (clause.type) {
       case "fact":
         // facts return one binding per matching row of the table
         return (this.tables[clause.table] || [])
-          .map((row) => this.bind(row, clause))
+          .map((fact) => this.bind(fact, clause))
           .filter((b) => b !== undefined) as Binding[];
       case "conjunction":
         // conjunction joins bindings into a single binding
@@ -403,16 +412,19 @@ export default class Interpreter {
           comparisons: [],
         } as Binding
       );
-    } catch (e) {
-      if (e.type === 'BindingMismatch') return undefined;
+    } catch (e: any) {
+      if (e.type === "BindingMismatch") return undefined;
       throw e;
     }
   }
 
-  bind(constants: Constant[], clause: Fact): Binding | undefined {
+  bind(fact: Fact, clause: Fact): Binding | undefined {
     const entries: [string, Constant][] = [];
-    for (let i = 0; i < constants.length; i++) {
-      const value = constants[i];
+    for (let i = 0; i < fact.fields.length; i++) {
+      const value = fact.fields[i];
+      if (!isConstant(value)) {
+        throw new Entception(`can't bind non-constant field of type ${value.type} in ${factToString(fact)}`);
+      }
       if (i >= clause.fields.length) break;
       const field = clause.fields[i];
       if (field.type === "variable" && field.value !== "?") {
@@ -424,13 +436,13 @@ export default class Interpreter {
         return undefined;
       }
     }
+    if (clause.matches === undefined) {
+      clause.matches = [];
+    }
+    clause.matches.push(fact);
     const bindings = Object.fromEntries(entries);
     return {
-      facts: [{
-        type: "fact",
-        table: clause.table,
-        fields: constants,
-      }],
+      facts: [fact],
       values: bindings,
       comparisons: [],
     };
@@ -557,12 +569,12 @@ export default class Interpreter {
           return roll;
         }
       case "Load":
-        if (fn.arguments[0].type !== 'string') {
+        if (fn.arguments[0].type !== "string") {
           throw new Entception(`expected load(<filename:string)>, got ${fn.arguments[0].type}`);
         }
         this.loadFromFile(fn.arguments[0].value);
         return {
-          type: 'boolean',
+          type: "boolean",
           value: true,
         };
       case "Count":
@@ -679,14 +691,14 @@ export default class Interpreter {
   }
 }
 
-export function statementToString(stmt: Statement): string {
+export function statementToString(stmt: Statement, color: boolean = false): string {
   switch (stmt.type) {
     case "claim":
-      return claimToString(stmt);
+      return claimToString(stmt, color);
     case "inference":
-      return inferenceToString(stmt);
+      return inferenceToString(stmt, color);
     case "query":
-      return queryToString(stmt);
+      return queryToString(stmt, color);
     case "comment":
       return `// ${stmt.value}`;
     default:
@@ -694,30 +706,40 @@ export function statementToString(stmt: Statement): string {
   }
 }
 
-export function inferenceToString(inf: Inference): string {
-  return `${factToString(inf.left)} :- ${clauseToString(inf.right)}.`;
+export function inferenceToString(inf: Inference, color: boolean = false): string {
+  return `${factToString(inf.left, color)} :- ${clauseToString(inf.right, color)}.`;
 }
 
-export function queryToString(q: Query): string {
-  return `? ${clauseToString(q.clause)}`;
+export function queryToString(q: Query, color: boolean = false): string {
+  return `? ${clauseToString(q.clause, color)}`;
 }
 
-export function factToString(fact: Fact): string {
-  return `${fact.negative ? "~" : ""}${fact.table}(${fact.fields.map((e) => expressionToString(e)).join(", ")})`;
+export function factToString(fact: Fact, color: boolean = false): string {
+  const s = `${fact.negative ? "~" : ""}${fact.table}(${fact.fields.map((e) => expressionToString(e)).join(", ")})`;
+  if (color) {
+    if (fact.matches === undefined) {
+      return chalk.yellow(s);
+    } else if (fact.matches.length === 0) {
+      return chalk.red(s);
+    } else {
+      return chalk.green(s);
+    }
+  }
+  return s;
 }
 
-export function clauseToString(clause: Clause): string {
+export function clauseToString(clause: Clause, color: boolean = false): string {
   switch (clause.type) {
     case "fact":
-      return factToString(clause);
+      return factToString(clause, color);
     case "conjunction":
-      return "(" + clause.clauses.map((c) => clauseToString(c)).join(" & ") + ")";
+      return "(" + clause.clauses.map((c) => clauseToString(c, color)).join(" & ") + ")";
     case "disjunction":
-      return "(" + clause.clauses.map((c) => clauseToString(c)).join(" | ") + ")";
+      return "(" + clause.clauses.map((c) => clauseToString(c, color)).join(" | ") + ")";
     case "exclusive_disjunction":
-      return "(" + clause.clauses.map((c) => clauseToString(c)).join(" ⊕ ") + ")";
+      return "(" + clause.clauses.map((c) => clauseToString(c, color)).join(" ⊕ ") + ")";
     case "comparison":
-      return comparisonToString(clause);
+      return comparisonToString(clause, color);
     default:
       return JSON.stringify(clause, null, 2);
   }
@@ -746,7 +768,7 @@ export function expressionToString(expr: Expression): string {
   }
 }
 
-export function comparisonToString(comparison: Comparison): string {
+export function comparisonToString(comparison: Comparison, color: boolean = false): string {
   return `${expressionToString(comparison.left)} ${comparison.operator} ${expressionToString(comparison.right)}`;
 }
 
@@ -755,8 +777,8 @@ export function rollToString(roll: Roll): string {
   return `${roll.count}d${roll.die}${mod}`;
 }
 
-export function claimToString(claim: Claim): string {
-  return `ergo ${clauseToString(claim.clause)}`;
+export function claimToString(claim: Claim, color: boolean = false): string {
+  return `ergo ${clauseToString(claim.clause, color)}`;
 }
 
 export function rollingToString(roll: Rolling): string {
@@ -778,19 +800,21 @@ function main() {
       statements.forEach((stmt) => {
         const result = interpreter.exec(stmt);
         if (result instanceof Array) {
-          result.forEach(f => {
+          result.forEach((f) => {
             console.log(factToString(f));
           });
+        } else if (result.type === "boolean" && !result.value) {
+          console.log(statementToString(stmt, true));
         }
       });
     } catch (e: any) {
-      if ('location' in e) {
-        const line = input.split('\n')[e.location.start.line - 1];
+      if ("location" in e) {
+        const line = input.split("\n")[e.location.start.line - 1];
         console.log(e.toString());
         const left = line.slice(0, e.location.start.column - 1);
         const mid = line[e.location.start.column - 1];
         const right = line.slice(e.location.start.column);
-        console.log(chalk.green(left || '') + chalk.red(mid || '') + (right || ''));
+        console.log(chalk.green(left || "") + chalk.red(mid || "") + (right || ""));
       } else {
         console.error(e);
       }

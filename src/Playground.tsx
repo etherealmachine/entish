@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 
-import Interpreter, { Constant, expressionToString } from "./entmoot";
+import Interpreter, { Fact, expressionToString } from "./entmoot";
 import useMonacoEntish from "./useMonacoEntish";
 import dungeon_world from "./dungeon_world.ent";
 import { Navbar } from "./App";
@@ -28,13 +28,13 @@ function Database({ interpreter }: { interpreter: Interpreter }) {
   );
 }
 
-function Table({ name, rows }: { name: string; rows: Constant[][] }) {
+function Table({ name, rows }: { name: string; rows: Fact[] }) {
   return (
     <table>
       <tbody>
         {rows.map((row, i) => (
           <tr key={`${name}-${i}`}>
-            {row.map((val, j) => (
+            {row.fields.map((val, j) => (
               <td key={`${name}-${i}-${j}`}>{expressionToString(val)}</td>
             ))}
           </tr>

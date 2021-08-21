@@ -31,7 +31,7 @@ ergo attribute(character, Strength, str) &
 A character's bonus is half their attribute score minus ten
 
 ```entish
-bonus(character, attr, floor((score-10)/2)) :- attribute(character, attr, score).
+bonus(character, attr, Floor((score-10)/2)) :- attribute(character, attr, score).
 ```
 
 ## Gear
@@ -49,7 +49,7 @@ carrying(character, gear) :- wearing(character, gear) | wielding(character, gear
 Your armor is the sum of the armor of the gear you're wearing (like Chainmail) or wielding (like a Shield).
 
 ```entish
-armor(character, sum(armor)) :- (wearing(character, gear) | wielding(character, gear)) & armor(gear, armor).
+armor(character, Sum(armor)) :- (wearing(character, gear) | wielding(character, gear)) & armor(gear, armor).
 ```
 
 ### Load
@@ -57,7 +57,7 @@ armor(character, sum(armor)) :- (wearing(character, gear) | wielding(character, 
 A character's load is the sum of the weights of everying they are carrying.
 
 ```entish
-load(character, sum(weight)) :- carrying(character, gear) & weight(gear, weight).
+load(character, Sum(weight)) :- carrying(character, gear) & weight(gear, weight).
 ```
 
 ## Tags

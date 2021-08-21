@@ -9,6 +9,9 @@
 			"include": "#keywords"
 		},
 		{
+			"include": "#builtins"
+		},
+		{
 			"include": "#variables"
 		},
 		{
@@ -33,6 +36,14 @@
 				{
 					"name": "keyword.operator.ent",
 					"match": "(:-|[&|^*\/+-])"
+				}
+			]
+		},
+		"builtins": {
+			"patterns": [
+				{
+					"name": "support.function.ent",
+					"match": "Floor|Ceil|Min|Max|Sum|Count|Load|Pr"
 				}
 			]
 		},

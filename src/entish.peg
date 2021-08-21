@@ -50,6 +50,7 @@ statement
   = comment:comment "\n"? { return comment }
   / inference:inference "." { return inference }
   / claim:claim "." { return claim }
+  / fn:function "." { return fn }
   / fact:fact "." { return fact }
   / roll:rolling "." { return roll}
   / query:query "." { return query }
@@ -104,12 +105,13 @@ function
   = fn:builtin_function "(" _ args:arguments _ ")" { return { type: 'function', function: fn, arguments: args.arguments } }
 
 builtin_function
-  = "floor"
-  / "ceil"
-  / "min"
-  / "max"
-  / "sum"
-  / "count"
+  = "Floor"
+  / "Ceil"
+  / "Min"
+  / "Max"
+  / "Sum"
+  / "Count"
+  / "Load"
   / "Pr"
 
 arguments
@@ -119,7 +121,11 @@ nextargs
   = _ "," _ expr:comparison { return expr }
 
 string
-  = name:([A-Z][A-Za-z_]+) { return { type: 'string', value: name[0] + name[1].join('') } }
+  = quoted_string
+  / string:([A-Z][A-Za-z_]+) { return { type: 'string', value: string[0] + string[1].join('') } }
+
+quoted_string
+  = "\"" string:([^"]+) "\"" { return { type: 'string', value: string.join('') } }
 
 variable
   = name:([a-z_]+) { return { type: 'variable', value: name.join('') } }

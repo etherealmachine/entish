@@ -244,7 +244,7 @@ test("parsing claim with binary operation and comparisons", () => {
 test("parsing inference", () => {
   const interpreter = new Interpreter("seed");
   expect(
-    interpreter.parse("bonus(character, attr, floor((score-10)/2)) :- attribute(character, attr, score).", true)
+    interpreter.parse("bonus(character, attr, Floor((score-10)/2)) :- attribute(character, attr, score).", true)
   ).toStrictEqual([
     {
       type: "inference",
@@ -256,7 +256,7 @@ test("parsing inference", () => {
           { type: "variable", value: "attr" },
           {
             type: "function",
-            function: "floor",
+            function: "Floor",
             arguments: [
               {
                 type: "binary_operation",

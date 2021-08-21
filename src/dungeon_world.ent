@@ -11,7 +11,7 @@ attribute(Auric, Strength, 16).
 attribute(Auric, Wisdom, 9).
 
 // A character's bonus is half their attribute score minus ten
-bonus(character, attr, floor((score-10)/2)) :- attribute(character, attr, score).
+bonus(character, attr, Floor((score-10)/2)) :- attribute(character, attr, score).
 
 // Therefore, Auric has a Strength bonus of 3
 ergo bonus(Auric, Strength, 3).
@@ -41,10 +41,10 @@ tag(TwoHandedSword, Close).
 tag(character, tag) :- (wearing(character, gear) | wielding(character, gear)) & tag(gear, tag).
 
 // Given a character, their armor is the sum of the armor of gear they are wearing/wielding
-armor(character, sum(armor)) :- (wearing(character, gear) | wielding(character, gear)) & armor(gear, armor).
+armor(character, Sum(armor)) :- (wearing(character, gear) | wielding(character, gear)) & armor(gear, armor).
 
 // Given a character, their load is the sum of the weights of gear they are wearing and wielding
-load(character, sum(weight)) :- (wearing(character, gear) | wielding(character, gear)) & weight(gear, weight).
+load(character, Sum(weight)) :- (wearing(character, gear) | wielding(character, gear)) & weight(gear, weight).
 
 // The max load of a Barbarian is 8 plus their strength bonus
 max_load(character, 8+str) :- class(character, Barbarian) & bonus(character, Strength, str).
@@ -87,10 +87,10 @@ ergo hit(Auric, TwoHandedSword, Orc).
 
 roll damage(TwoHandedSword, ?).
 
-ergo damage(TwoHandedSword, 5).
+ergo damage(TwoHandedSword, ?).
 
 max_health(Orc, 10).
 
-health(character, max_health - sum(damage)) :- max_health(character, max_health) & hit(?, weapon, character) & damage(weapon, damage).
+health(character, max_health - Sum(damage)) :- max_health(character, max_health) & hit(?, weapon, character) & damage(weapon, damage).
 
-ergo health(Orc, 5).
+ergo health(Orc, ?).

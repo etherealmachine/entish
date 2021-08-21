@@ -1,3 +1,4 @@
+import fs from 'fs';
 import peg from "pegjs";
 import staticGrammar from "./entish.peg";
 import seedrandom from "seedrandom";
@@ -13,7 +14,7 @@ if (staticGrammar === "entish.peg") {
   grammar = staticGrammar;
 }
 
-export type Statement = Comment | Fact | Inference | Claim | Rolling | Query;
+export type Statement = Comment | Fact | Inference | Claim | Rolling | Query | Function;
 
 export type Comment = {
   type: "comment";
@@ -33,7 +34,7 @@ export type Inference = {
   right: Conjunction | Disjunction;
 };
 
-export type Clause = Fact | Conjunction | Disjunction | ExclusiveDisjunction | Comparison;
+export type Clause = Fact | Function | Conjunction | Disjunction | ExclusiveDisjunction | Comparison;
 
 export type Conjunction = {
   type: "conjunction";
@@ -87,7 +88,7 @@ export type BinaryOperation = {
 
 export type Function = {
   type: "function";
-  function: "floor" | "ceil" | "min" | "max" | "sum" | "count" | "Pr";
+  function: "Floor" | "Ceil" | "Min" | "Max" | "Sum" | "Count" | "Load" | "Pr";
   arguments: Expression[];
 };
 
@@ -127,7 +128,9 @@ export type Binding = {
 
 export class Entception extends Error { }
 
-export class BindingMismatch extends Error { }
+export class BindingMismatch extends Error {
+  type: string = 'BindingMismatch'
+}
 
 export class TODO extends Error { }
 
@@ -177,7 +180,7 @@ export default class Interpreter {
     this.rng = seedrandom(seed);
   }
 
-  exec(statement: Statement): Fact[] {
+  exec(statement: Statement): Fact[] | Constant {
     switch (statement.type) {
       case "comment":
         return [];
@@ -196,6 +199,8 @@ export default class Interpreter {
         return this.query(statement.clause);
       case "rolling":
         return this.roll(statement);
+      case "function":
+        return this.evaluateFunction(statement, { facts: [], values: {}, comparisons: [] });
       default:
         throw new TODO(`unhandled statement type: ${(statement as any).type}`);
     }
@@ -205,19 +210,6 @@ export default class Interpreter {
     const tracer = colortrace ? new Tracer(input) : this;
     try {
       return this.parser.parse(input, { tracer: tracer }).filter((x: any) => x);
-    } catch (e: any) {
-      if (e instanceof this.parser.SyntaxError) {
-        if (tracer.getBacktraceString) {
-          console.log(tracer.getBacktraceString());
-        }
-        const line = input.split('\n')[e.location.start.line - 1];
-        console.log(
-          chalk.green(line.slice(0, e.location.start.column)) +
-          chalk.red(line[e.location.end.column - 1]) +
-          line.slice(e.location.end.column)
-        );
-      }
-      throw e;
     } finally {
       this.traceEvents = [];
     }
@@ -329,6 +321,8 @@ export default class Interpreter {
             comparisons: [clause],
           },
         ];
+      case "function":
+        throw new TODO("can't handle function as clause");
     }
   }
 
@@ -379,7 +373,7 @@ export default class Interpreter {
         } as Binding
       );
     } catch (e) {
-      if (e instanceof BindingMismatch) return undefined;
+      if (e.type === 'BindingMismatch') return undefined;
       throw e;
     }
   }
@@ -485,13 +479,13 @@ export default class Interpreter {
 
   evaluateFunction(fn: Function, binding: Binding): Constant {
     switch (fn.function) {
-      case "floor":
+      case "Floor":
         const arg = this.evaluateExpression(fn.arguments[0], binding);
         if (arg.type !== "number") {
           throw new Entception(`floor requires numeric argument, got ${arg.type}`);
         }
         return { type: "number", value: Math.floor(arg.value) };
-      case "sum":
+      case "Sum":
         if (binding.group === undefined) {
           return {
             type: "number",
@@ -520,7 +514,7 @@ export default class Interpreter {
           const operator = fn.arguments[0].operator;
           const target = this.evaluateExpression(fn.arguments[0].right, binding);
           if (roll.type !== "roll" || target.type !== "number") {
-            throw new Entception(`can't compute probability for ${fn.arguments[0]}`);
+            throw new Entception(`can't compute probability for ${expressionToString(fn.arguments[0])}`);
           }
           return {
             type: "number",
@@ -531,9 +525,19 @@ export default class Interpreter {
           if (roll.type !== "roll") throw new Entception(`first argument to probability function must be a roll`);
           return roll;
         }
-      case "count":
+      case "Load":
+        if (fn.arguments[0].type !== 'string') {
+          throw new Entception(`expected load(<filename:string)>, got ${fn.arguments[0].type}`);
+        }
+        const rules = fs.readFileSync(fn.arguments[0].value).toString();
+        this.load(rules);
+        return {
+          type: 'boolean',
+          value: true,
+        };
+      case "Count":
       default:
-        throw new TODO();
+        throw new TODO(`can't handle function ${fn.function}`);
     }
   }
 
@@ -591,7 +595,7 @@ export default class Interpreter {
     const aggregations = fact.fields
       .map((e) =>
         this.searchExpression(e, (e) => {
-          if (e.type === "function" && e.function === "sum") return e;
+          if (e.type === "function" && e.function === "Sum") return e;
           return undefined;
         })
       )
@@ -600,7 +604,7 @@ export default class Interpreter {
     const variables = fact.fields
       .map((e) =>
         this.searchExpression(e, (e) => {
-          if (e.type === "function" && e.function === "sum") return false;
+          if (e.type === "function" && e.function === "Sum") return false;
           if (e.type === "variable") return e;
           return undefined;
         })
@@ -739,11 +743,28 @@ function main() {
   const interpreter = new Interpreter("1234");
 
   function handleInput(input: string) {
-    const statements = interpreter.parse(input, true);
-    console.log(JSON.stringify(statements[0], null, 2));
-    statements.forEach((stmt) => {
-      interpreter.exec(stmt);
-    });
+    try {
+      const statements = interpreter.parse(input, true);
+      statements.forEach((stmt) => {
+        const result = interpreter.exec(stmt);
+        if (result instanceof Array) {
+          result.forEach(f => {
+            console.log(factToString(f));
+          });
+        }
+      });
+    } catch (e: any) {
+      if ('location' in e) {
+        const line = input.split('\n')[e.location.start.line - 1];
+        console.log(e.toString());
+        const left = line.slice(0, e.location.start.column);
+        const mid = line[e.location.end.column - 1];
+        const right = line.slice(e.location.end.column);
+        console.log(chalk.green(left || '') + chalk.red(mid || '') + (right || ''));
+      } else {
+        console.error(e);
+      }
+    }
     rl.question("> ", handleInput);
   }
 

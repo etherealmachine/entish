@@ -23,7 +23,7 @@ Install it with `npm install entish` or `yarn add entish`.
 
 So let's talk about Auric...
 
-```
+```entish
 // Auric has the Barbarian class
 class(Auric, Barbarian).
 
@@ -34,13 +34,13 @@ attribute(Auric, Strength, 16).
 attribute(Auric, Wisdom, 9).
 
 // A character's bonus is half their attribute score minus ten
-bonus(character, attr, floor((score-10)/2)) :- attribute(character, attr, score).
+bonus(character, attr, Floor((score-10)/2)) :- attribute(character, attr, score).
 
 // Therefore, Auric has a Strength bonus of 3
-∴ bonus(Auric, Strength, 3).
+ergo bonus(Auric, Strength, 3).
 
 // Therefore, Auric has a Wisdom bonus of -1
-∴ bonus(Auric, Wisdom, -1).
+ergo bonus(Auric, Wisdom, -1).
 ```
 
 This shows the basics of Entish. We define some **facts**, like `attribute(Auric, Strength, 16)`.
@@ -50,7 +50,7 @@ This is basically testing, but baked into the language.
 
 On to defining equipment...
 
-```
+```entish
 // Full Plate has an armor bonus of 3
 armor(FullPlate, 3).
 
@@ -73,10 +73,10 @@ tag(TwoHandedSword, Close).
 tag(character, tag) :- (wearing(character, gear) | wielding(character, gear)) & tag(gear, tag).
 
 // Given a character, their armor is the sum of the armor of gear they are wearing/wielding
-armor(character, sum(armor)) :- (wearing(character, gear) | wielding(character, gear)) & armor(gear, armor).
+armor(character, Sum(armor)) :- (wearing(character, gear) | wielding(character, gear)) & armor(gear, armor).
 
 // Given a character, their load is the sum of the weights of gear they are wearing and wielding
-load(character, sum(weight)) :- (wearing(character, gear) | wielding(character, gear)) & weight(gear, weight).
+load(character, Sum(weight)) :- (wearing(character, gear) | wielding(character, gear)) & weight(gear, weight).
 
 // The max load of a Barbarian is 8 plus their strength bonus
 max_load(character, 8+str) :- class(character, Barbarian) & bonus(character, Strength, str).
@@ -90,27 +90,27 @@ This produces one fact per group.
 Max load also shows off just doing straight up **math** in an inference. As far as I know,
 this isn't really covered in standard Datalog but it's obviously useful.
 
-```
+```entish
 // Give Auric his gear
 wearing(Auric, FullPlate).
 wielding(Auric, RoundShield).
 wielding(Auric, TwoHandedSword).
 
 // So Auric is Clumsy, but he's got 4 armor a load of 7, and a max load of 11
-∴ tag(Auric, Clumsy).
-∴ armor(Auric, 4).
-∴ load(Auric, 7).
-∴ max_load(Auric, 11).
+ergo tag(Auric, Clumsy).
+ergo armor(Auric, 4).
+ergo load(Auric, 7).
+ergo max_load(Auric, 11).
 ```
 
 Now that we have **load** and **max load** the next obvious thing to do is compare them:
 
-```
+```entish
 // Given a character and max load, they are tagged with Encumbered if their load is greater than their max load
 tag(character, Encumbered) :- load(character, load) & max_load(character, max_load) & load > max_load.
 
 // Therefore Auric is not Encumbered
-∴ ~tag(Auric, Encumbered).
+ergo ~tag(Auric, Encumbered).
 ```
 
 You can start to see the possibilities of formalizing the rules. A nice UI could show us all
@@ -132,7 +132,7 @@ return any facts that pattern match what you give them:
 
 One final example:
 
-```
+```entish
 // The move "Full Plate and Packing Steel" negates the Clumsy tag
 ~tag(character, Clumsy) :- move(character, FullPlateAndPackingSteel).
 
@@ -140,7 +140,7 @@ One final example:
 move(Auric, FullPlateAndPackingSteel).
 
 // Auric is not Clumsy
-∴ ~tag(Auric, Clumsy).
+ergo ~tag(Auric, Clumsy).
 ```
 
 Now we're really deviating from Datalog! **Negating** facts makes things complicated, but it's
@@ -148,30 +148,30 @@ worth it because sometimes you want rules that tell you to ignore other rules.
 
 **Work In Progress**: Rolls and probability
 
-```
+```entish
 // Rolls and probability - work in progress
 attack(Barbarian, 1d20+2).
 
-∴ attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
+ergo attack(Barbarian, roll) & Pr(roll >= 15) = 0.4.
 
 enemy(Orc).
 armor(Orc, 10).
 
 hit(character, weapon, enemy, roll, armor) :- class(character, class) & attack(class, roll) & wielding(character, weapon) & damage(weapon, ?) & enemy(enemy) & armor(enemy, armor) & roll >= armor.
 
-🎲 attack(Barbarian, ?) & enemy(Orc).
+roll attack(Barbarian, ?) & enemy(Orc).
 
-∴ hit(Auric, TwoHandedSword, Orc)
+ergo hit(Auric, TwoHandedSword, Orc).
 
-🎲 damage(TwoHandedSword, ?).
+roll damage(TwoHandedSword, ?).
 
-∴ damage(TwoHandedSword, 7).
+ergo damage(TwoHandedSword, 7).
 
 max_health(Orc, 10).
 
-health(character, max_health - sum(damage)) :- max_health(character, max_health) & hit(?, weapon, character) & damage(weapon, damage).
+health(character, max_health - Sum(damage)) :- max_health(character, max_health) & hit(?, weapon, character) & damage(weapon, damage).
 
-∴ health(Orc, 3).
+ergo health(Orc, 3).
 ```
 
 This example is pre-loaded in the [Playground](//etherealmachine.github.io/entish)

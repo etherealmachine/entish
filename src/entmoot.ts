@@ -186,6 +186,7 @@ export default class Interpreter {
   tables: { [key: string]: Fact[] } = {};
   inferences: Inference[] = [];
   claims: Claim[] = [];
+  lastInput?: string;
   rng: () => number;
 
   constructor(seed: string, strict: boolean = true) {
@@ -241,6 +242,7 @@ export default class Interpreter {
   }
 
   load(input: string) {
+    this.lastInput = input;
     const statements = this.parse(input);
     for (let line in statements) {
       const statement = statements[line];
@@ -629,7 +631,7 @@ export default class Interpreter {
       case "roll":
         return expr;
       default:
-        throw new Entception(`unhandled expression type ${(expr as any).type}`);
+        throw new Entception(`unhandled expression type ${(expr as any).type}: ${expressionToString(expr)}`);
     }
   }
 
@@ -809,12 +811,17 @@ function main() {
       });
     } catch (e: any) {
       if ("location" in e) {
-        const line = input.split("\n")[e.location.start.line - 1];
         console.log(e.toString());
-        const left = line.slice(0, e.location.start.column - 1);
-        const mid = line[e.location.start.column - 1];
-        const right = line.slice(e.location.start.column);
-        console.log(chalk.green(left || "") + chalk.red(mid || "") + (right || ""));
+        let line = input.split("\n")[e.location.start.line - 1];
+        if (!line && interpreter.lastInput) {
+          line = interpreter.lastInput.split("\n")[e.location.start.line - 1];
+        }
+        if (line) {
+          const left = line.slice(0, e.location.start.column - 1);
+          const mid = line[e.location.start.column - 1];
+          const right = line.slice(e.location.start.column);
+          console.log(chalk.green(left || "") + chalk.red(mid || "") + (right || ""));
+        }
       } else {
         console.error(e);
       }

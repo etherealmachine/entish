@@ -123,13 +123,13 @@ nextargs
 
 string
   = quoted_string
-  / string:([A-Z][A-Za-z_]+) { return { type: 'string', value: string[0] + string[1].join('') } }
+  / string:([A-Z][A-Za-z_]*) { return { type: 'string', value: string[0] + string[1].join('') } }
 
 quoted_string
   = "\"" string:([^"]+) "\"" { return { type: 'string', value: string.join('') } }
 
 variable
-  = name:([a-z_]+) { return { type: 'variable', value: name.join('') } }
+  = name:([a-z][a-z_0-9]*) { return { type: 'variable', value: name[0] + name[1].join('') } }
   / "?" { return { type: 'variable', value: '?' } }
 
 roll

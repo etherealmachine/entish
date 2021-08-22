@@ -27,7 +27,11 @@ export default function entish(api?: HLJSApi) {
       ),
       {
         scope: "keyword",
-        begin: "∴",
+        begin: "ergo",
+      },
+      {
+        scope: "keyword",
+        begin: "roll",
       },
       {
         scope: "keyword",

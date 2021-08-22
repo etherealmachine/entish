@@ -1,16 +1,16 @@
 import chalk from "chalk";
-import fs, { stat } from "fs";
+import fs from "fs";
 import marked from "marked";
 import peg from "pegjs";
-import staticGrammar from "./entish.peg";
 import seedrandom from "seedrandom";
-import Tracer from "pegjs-backtrace";
 
 if (typeof document === "undefined") {
   const { JSDOM } = require("jsdom");
   globalThis.document = new JSDOM().window.document;
 }
 
+require("./raw-loader.js").register(/\.peg$/);
+const staticGrammar = require("./entish.peg");
 let grammar: string;
 if (staticGrammar === "entish.peg") {
   // Just so jest can access non-js resources
@@ -151,8 +151,12 @@ function groupBy<T>(array: T[], f: (o: T) => string) {
   return Object.keys(groups).map((group) => groups[group]);
 }
 
-function equal(expr1: Expression, expr2: Expression): boolean {
+function equal(expr1: Expression | Fact, expr2: Expression | Fact): boolean {
   if (expr1.type !== expr2.type) return false;
+  if (expr1.type === "fact" && expr2.type === "fact") {
+    if (expr1.fields.length !== expr2.fields.length) return false;
+    return expr1.fields.every((f, i) => equal(f, expr2.fields[i]));
+  }
   if (expr1.type === "roll" && expr2.type === "roll") return rollToString(expr1) === rollToString(expr2);
   if ("value" in expr1 && "value" in expr2) return expr1.value === expr2.value;
   throw new Entception(`incomparable types: ${expr1.type} and ${expr2.type}`);
@@ -228,10 +232,9 @@ export default class Interpreter {
     }
   }
 
-  parse(input: string, colortrace = false): Statement[] {
-    const tracer = colortrace ? new Tracer(input) : this;
+  parse(input: string): Statement[] {
     try {
-      return this.parser.parse(input, { tracer: tracer }).filter((x: any) => x);
+      return this.parser.parse(input, { tracer: this }).filter((x: any) => x);
     } finally {
       this.traceEvents = [];
     }
@@ -279,7 +282,7 @@ export default class Interpreter {
     if (fact.fields.some((expr) => !isConstant(expr))) {
       throw new Entception(`facts must be grounded with strings or numbers: ${factToString(fact)}`);
     }
-    if (!this.tables[fact.table].some((fact) => fact.fields.every((f, i) => equal(f, fact.fields[i])))) {
+    if (!this.tables[fact.table].some((existingFact) => equal(existingFact, fact))) {
       this.tables[fact.table].push(fact);
       return [fact].concat(this.inferences.map((i) => this.loadInference(i, true)).flat());
     }
@@ -785,57 +788,4 @@ export function claimToString(claim: Claim, color: boolean = false): string {
 
 export function rollingToString(roll: Rolling): string {
   return `roll ${clauseToString(roll.clause)}`;
-}
-
-function main() {
-  const readline = require("readline");
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  const interpreter = new Interpreter("1234", false);
-
-  function handleInput(input: string) {
-    try {
-      const statements = interpreter.parse(input, true);
-      statements.forEach((stmt) => {
-        const result = interpreter.exec(stmt);
-        if (result instanceof Array) {
-          result.forEach((f) => {
-            console.log(factToString(f));
-          });
-        } else if (result.type === "boolean" && !result.value) {
-          console.log(statementToString(stmt, true));
-        }
-      });
-    } catch (e: any) {
-      if ("location" in e) {
-        console.log(e.toString());
-        let line = input.split("\n")[e.location.start.line - 1];
-        if (!line && interpreter.lastInput) {
-          line = interpreter.lastInput.split("\n")[e.location.start.line - 1];
-        }
-        if (line) {
-          const left = line.slice(0, e.location.start.column - 1);
-          const mid = line[e.location.start.column - 1];
-          const right = line.slice(e.location.start.column);
-          console.log(chalk.green(left || "") + chalk.red(mid || "") + (right || ""));
-        }
-      } else {
-        console.error(e);
-      }
-    }
-    rl.question("> ", handleInput);
-  }
-
-  rl.question("> ", handleInput);
-
-  rl.on("close", function () {
-    process.exit(0);
-  });
-}
-
-if (typeof window === "undefined") {
-  main();
 }

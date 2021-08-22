@@ -1,10 +1,9 @@
 import Interpreter from "./entmoot";
 import fs from "fs";
-import marked from "marked";
 
 test("parsing single fact", () => {
   const interpreter = new Interpreter("seed");
-  expect(interpreter.parse("class(Auric, Barbarian).", true)).toStrictEqual([
+  expect(interpreter.parse("class(Auric, Barbarian).")).toStrictEqual([
     {
       type: "fact",
       table: "class",
@@ -18,7 +17,7 @@ test("parsing single fact", () => {
 
 test("parsing simple claim", () => {
   const interpreter = new Interpreter("seed");
-  expect(interpreter.parse("ergo ((1+2)*4)=12.", true)).toStrictEqual([
+  expect(interpreter.parse("ergo ((1+2)*4)=12.")).toStrictEqual([
     {
       type: "claim",
       clause: {
@@ -57,8 +56,7 @@ test("parsing claim with a few clauses", () => {
   const interpreter = new Interpreter("seed");
   expect(
     interpreter.parse(
-      "ergo class(character, Barbarian) & (wielding(character, Axe) ^ wielding(character, TwoHandedSword)).",
-      true
+      "ergo class(character, Barbarian) & (wielding(character, Axe) ^ wielding(character, TwoHandedSword))."
     )
   ).toStrictEqual([
     {
@@ -117,8 +115,7 @@ test("parsing claim with more complicated clauses", () => {
   const interpreter = new Interpreter("seed");
   expect(
     interpreter.parse(
-      "ergo class(character, Barbarian) & ((carrying(character, AdventuringGear) & carrying(character, DungeonRations, 5)) ^ wearing(character, Chainmail)).",
-      true
+      "ergo class(character, Barbarian) & ((carrying(character, AdventuringGear) & carrying(character, DungeonRations, 5)) ^ wearing(character, Chainmail))."
     )
   ).toStrictEqual([
     {
@@ -177,7 +174,7 @@ test("parsing claim with more complicated clauses", () => {
 
 test("parsing claim with operator precedence", () => {
   const interpreter = new Interpreter("seed");
-  expect(interpreter.parse("ergo 2+3*4 = 14.", true)).toStrictEqual([
+  expect(interpreter.parse("ergo 2+3*4 = 14.")).toStrictEqual([
     {
       type: "claim",
       clause: {
@@ -214,7 +211,7 @@ test("parsing claim with operator precedence", () => {
 
 test("parsing claim with binary operation and comparisons", () => {
   const interpreter = new Interpreter("seed");
-  expect(interpreter.parse("ergo 1+2 < 10.", true)).toStrictEqual([
+  expect(interpreter.parse("ergo 1+2 < 10.")).toStrictEqual([
     {
       type: "claim",
       clause: {
@@ -244,7 +241,7 @@ test("parsing claim with binary operation and comparisons", () => {
 test("parsing inference", () => {
   const interpreter = new Interpreter("seed");
   expect(
-    interpreter.parse("bonus(character, attr, Floor((score-10)/2)) :- attribute(character, attr, score).", true)
+    interpreter.parse("bonus(character, attr, Floor((score-10)/2)) :- attribute(character, attr, score).")
   ).toStrictEqual([
     {
       type: "inference",
@@ -288,7 +285,7 @@ test("parsing inference", () => {
 
 test("parsing claim with an expression", () => {
   const interpreter = new Interpreter("seed");
-  expect(interpreter.parse("ergo attr(str) & attr(dex) & str + dex >= 10.", true)).toStrictEqual([
+  expect(interpreter.parse("ergo attr(str) & attr(dex) & str + dex >= 10.")).toStrictEqual([
     {
       type: "claim",
       clause: {
@@ -326,7 +323,7 @@ test("parsing claim with an expression", () => {
 
 test("parsing long expression", () => {
   const interpreter = new Interpreter("seed");
-  expect(interpreter.parse("ergo 1+2+3 = 6 & 1 < 2 & 2 < 3.", true)).toStrictEqual([
+  expect(interpreter.parse("ergo 1+2+3 = 6 & 1 < 2 & 2 < 3.")).toStrictEqual([
     {
       type: "claim",
       clause: {
@@ -348,7 +345,7 @@ test("parsing long expression", () => {
                 right: {
                   type: "number",
                   value: 2,
-                }
+                },
               },
               right: {
                 type: "number",
@@ -384,7 +381,7 @@ test("parsing long expression", () => {
               value: 3,
             },
           },
-        ]
+        ],
       },
     },
   ]);
@@ -395,7 +392,7 @@ test("basic facts and claims", () => {
   interpreter.load("class(Auric, Barbarian).");
   interpreter.load("carrying(Auric, AdventuringGear).");
   interpreter.load("tag(character, Adventurer) :- class(character, ?) & carrying(character, AdventuringGear).");
-  interpreter.load("ergo tag(Auric, Adventurer).")
+  interpreter.load("ergo tag(Auric, Adventurer).");
 });
 
 test("negating facts and claims", () => {
@@ -405,7 +402,7 @@ test("negating facts and claims", () => {
   interpreter.load("tag(Auric, Commoner).");
   interpreter.load("tag(character, Adventurer) :- class(character, ?) & carrying(character, AdventuringGear).");
   interpreter.load("~tag(character, Commoner) :- tag(character, Adventurer).");
-  interpreter.load("ergo ~tag(Auric, Commoner).")
+  interpreter.load("ergo ~tag(Auric, Commoner).");
 });
 
 test("load and exec rules from file", () => {
@@ -429,7 +426,7 @@ test("load and exec markdown rules for dungeon world", () => {
   interpreter.load("wielding(Auric, Dagger).");
   interpreter.load("wielding(Auric, Axe).");
 
-  fs.readdirSync("./src/rules/dungeon_world").forEach(filename => {
+  fs.readdirSync("./src/rules/dungeon_world").forEach((filename) => {
     if (filename.endsWith(".md")) {
       interpreter.loadFromFile("./src/rules/dungeon_world/" + filename);
     }

@@ -1,19 +1,19 @@
 {
   "files": {
-    "main.js": "/entish/static/js/main.4bd5a6a3.chunk.js",
-    "main.js.map": "/entish/static/js/main.4bd5a6a3.chunk.js.map",
-    "runtime-main.js": "/entish/static/js/runtime-main.e27aa823.js",
-    "runtime-main.js.map": "/entish/static/js/runtime-main.e27aa823.js.map",
-    "static/js/2.c2b2d29a.chunk.js": "/entish/static/js/2.c2b2d29a.chunk.js",
-    "static/js/2.c2b2d29a.chunk.js.map": "/entish/static/js/2.c2b2d29a.chunk.js.map",
-    "static/js/3.ff7b52a0.chunk.js": "/entish/static/js/3.ff7b52a0.chunk.js",
-    "static/js/3.ff7b52a0.chunk.js.map": "/entish/static/js/3.ff7b52a0.chunk.js.map",
+    "main.js": "/entish/static/js/main.4b3c2841.chunk.js",
+    "main.js.map": "/entish/static/js/main.4b3c2841.chunk.js.map",
+    "runtime-main.js": "/entish/static/js/runtime-main.28cbdff2.js",
+    "runtime-main.js.map": "/entish/static/js/runtime-main.28cbdff2.js.map",
+    "static/js/2.5cbf315a.chunk.js": "/entish/static/js/2.5cbf315a.chunk.js",
+    "static/js/2.5cbf315a.chunk.js.map": "/entish/static/js/2.5cbf315a.chunk.js.map",
+    "static/js/3.109c3f5f.chunk.js": "/entish/static/js/3.109c3f5f.chunk.js",
+    "static/js/3.109c3f5f.chunk.js.map": "/entish/static/js/3.109c3f5f.chunk.js.map",
     "index.html": "/entish/index.html",
-    "static/js/2.c2b2d29a.chunk.js.LICENSE.txt": "/entish/static/js/2.c2b2d29a.chunk.js.LICENSE.txt"
+    "static/js/2.5cbf315a.chunk.js.LICENSE.txt": "/entish/static/js/2.5cbf315a.chunk.js.LICENSE.txt"
   },
   "entrypoints": [
-    "static/js/runtime-main.e27aa823.js",
-    "static/js/2.c2b2d29a.chunk.js",
-    "static/js/main.4bd5a6a3.chunk.js"
+    "static/js/runtime-main.28cbdff2.js",
+    "static/js/2.5cbf315a.chunk.js",
+    "static/js/main.4b3c2841.chunk.js"
   ]
 }

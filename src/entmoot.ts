@@ -16,6 +16,8 @@ if (staticGrammar === "entish.peg") {
   // Just so jest can access non-js resources
   const fs = require("fs");
   grammar = fs.readFileSync("./src/entish.peg").toString();
+} else if (typeof staticGrammar === "string") {
+  grammar = staticGrammar;
 } else {
   grammar = staticGrammar.default;
 }
@@ -104,6 +106,16 @@ export type Boolean = {
   value: boolean;
 };
 
+const TRUE: Boolean = {
+  type: "boolean",
+  value: true,
+};
+
+const FALSE: Boolean = {
+  type: "boolean",
+  value: true,
+};
+
 export type String = {
   type: "string";
   value: string;
@@ -133,13 +145,13 @@ export type Binding = {
   group?: Binding[];
 };
 
-export class Entception extends Error { }
+export class Entception extends Error {}
 
 export class BindingMismatch extends Error {
   type: string = "BindingMismatch";
 }
 
-export class TODO extends Error { }
+export class TODO extends Error {}
 
 function groupBy<T>(array: T[], f: (o: T) => string) {
   const groups: { [key: string]: T[] } = {};
@@ -189,7 +201,7 @@ export default class Interpreter {
   traceEvents: TraceEvent[] = [];
   tables: { [key: string]: Fact[] } = {};
   inferences: Inference[] = [];
-  claims: Claim[] = [];
+  claims: Clause[] = [];
   lastInput?: string;
   rng: () => number;
 
@@ -204,23 +216,17 @@ export default class Interpreter {
       case "comment":
         return [];
       case "fact":
-        return this.loadFact(statement);
+        return this.loadFact(statement, []);
       case "inference":
-        return this.loadInference(statement);
+        return this.loadInference(statement, []);
       case "claim":
-        this.claims.push(statement);
-        const facts = this.query(statement.clause);
-        const negative = !!(statement.clause.type === "fact" && statement.clause.negative);
-        if (negative !== (facts.length === 0)) {
+        if (!this.claim(statement.clause)) {
           if (this.strict) {
-            throw new Entception(`unable to verify ${claimToString(statement)}`);
+            throw new Entception(`unable to verify ${clauseToString(statement.clause)}`);
           }
-          return {
-            type: "boolean",
-            value: false,
-          } as Boolean;
+          return FALSE;
         }
-        return facts;
+        return TRUE;
       case "query":
         return this.query(statement.clause);
       case "rolling":
@@ -269,30 +275,51 @@ export default class Interpreter {
     }
   }
 
-  loadFact(fact: Fact): Fact[] {
-    if (fact.negative) {
-      this.tables[fact.table] = this.tables[fact.table].filter(
-        (fact) => !fact.fields.every((col, i) => equal(fact.fields[i], col))
-      );
-      return [fact];
-    }
+  loadFact(fact: Fact, ignore: Inference[]): Fact[] {
     if (!this.tables[fact.table]) {
       this.tables[fact.table] = [];
     }
     if (fact.fields.some((expr) => !isConstant(expr))) {
       throw new Entception(`facts must be grounded with strings or numbers: ${factToString(fact)}`);
     }
-    if (!this.tables[fact.table].some((existingFact) => equal(existingFact, fact))) {
-      this.tables[fact.table].push(fact);
-      return [fact].concat(this.inferences.map(inference => this.loadInference(inference, true)).flat());
+    if (fact.negative) {
+      this.tables[fact.table] = this.tables[fact.table].filter(
+        (fact) => !fact.fields.every((col, i) => equal(fact.fields[i], col))
+      );
+      return [];
     }
-    return [fact];
+    if (this.alreadyExists(fact)) {
+      return [];
+    }
+    this.tables[fact.table].push(fact);
+    return [fact].concat(
+      this.inferences
+        .filter((inf) => {
+          return !ignore.includes(inf);
+        })
+        .map((inf) => this.loadInference(inf, ignore))
+        .flat()
+    );
+  }
+
+  alreadyExists(thing: Fact | Inference): boolean {
+    if (thing.type === "fact") {
+      return this.tables[thing.table].some((existingFact) => equal(existingFact, thing));
+    }
+    return this.inferences.some((inf) => inferenceToString(inf) === inferenceToString(thing));
   }
 
   query(clause: Clause): Fact[] {
     return this.search(clause)
       .map((b) => b.facts)
       .flat();
+  }
+
+  claim(clause: Clause): boolean {
+    this.claims.push(clause);
+    const facts = this.query(clause);
+    const negative = !!(clause.type === "fact" && clause.negative);
+    return (!negative && facts.length > 0) || (negative && facts.length === 0);
   }
 
   roll(roll: Rolling): Fact[] {
@@ -306,11 +333,11 @@ export default class Interpreter {
           fields: fact.fields.map((f) => (f.type === "roll" ? this.generateRoll(f) : f)),
         };
       });
-    newFacts.forEach((fact) => this.loadFact(fact));
+    newFacts.forEach((fact) => this.loadFact(fact, []));
     return newFacts;
   }
 
-  loadInference(inference: Inference, recursive: boolean = false): Fact[] {
+  loadInference(inference: Inference, ignore: Inference[]): Fact[] {
     const bindings = this.aggregate(inference.left, this.search(inference.right));
     const facts: Fact[] = bindings.map((binding) => {
       return {
@@ -320,11 +347,12 @@ export default class Interpreter {
         fields: inference.left.fields.map((f) => this.evaluateExpression(f, binding)),
       };
     });
-    facts.concat(facts.map((f) => this.loadFact(f)).flat());
-    if (!recursive && !this.inferences.some((inf) => inferenceToString(inf) === inferenceToString(inference))) {
+    if (!this.alreadyExists(inference)) {
       this.inferences.push(inference);
     }
-    return facts;
+    ignore.push(inference);
+    const inferredFacts = facts.map((f) => this.loadFact(f, ignore)).flat();
+    return inferredFacts;
   }
 
   search(clause: Clause): Binding[] {

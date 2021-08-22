@@ -387,6 +387,11 @@ test("parsing long expression", () => {
   ]);
 });
 
+test("non-strict", () => {
+  const interpreter = new Interpreter("seed", false);
+  interpreter.load("ergo 2+2 = 5.");
+});
+
 test("basic facts and claims", () => {
   const interpreter = new Interpreter("seed");
   interpreter.load("class(Auric, Barbarian).");
@@ -437,6 +442,8 @@ test("self-referential inferences", () => {
   const interpreter = new Interpreter("seed");
   interpreter.load("foo(x+1) :- foo(x).");
   interpreter.load("foo(0).");
+  interpreter.load("ergo foo(1).");
+  interpreter.load("ergo ~foo(2).");
 });
 
 test("mutually-referential inferences", () => {
@@ -444,4 +451,6 @@ test("mutually-referential inferences", () => {
   interpreter.load("foo(x+1) :- bar(x).");
   interpreter.load("bar(x+1) :- foo(x).");
   interpreter.load("foo(0).");
+  interpreter.load("ergo bar(1).");
+  interpreter.load("ergo ~foo(2).");
 });

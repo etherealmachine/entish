@@ -95,6 +95,7 @@ primary
   / variable
   / roll
   / number
+  / "~(" _ expr:clause _ ")" { expr.negative = true; return expr }
   / "(" _ expr:clause _ ")" { return expr }
 
 fact

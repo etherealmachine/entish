@@ -48,16 +48,22 @@ export type Clause = Fact | Function | Conjunction | Disjunction | ExclusiveDisj
 export type Conjunction = {
   type: "conjunction";
   clauses: Clause[];
+  negative?: boolean;
+  veracity?: boolean;
 };
 
 export type Disjunction = {
   type: "disjunction";
   clauses: Clause[];
+  negative?: boolean;
+  veracity?: boolean;
 };
 
 export type ExclusiveDisjunction = {
   type: "exclusive_disjunction";
   clauses: Clause[];
+  negative?: boolean;
+  veracity?: boolean;
 };
 
 export type Comparison = {
@@ -65,6 +71,7 @@ export type Comparison = {
   operator: ComparisonOperator;
   left: Expression;
   right: Expression;
+  veracity?: boolean;
 };
 
 export type ComparisonOperator = "=" | ">" | "<" | ">=" | "<=" | "!=";
@@ -222,7 +229,7 @@ export default class Interpreter {
       case "claim":
         if (!this.claim(statement.clause)) {
           if (this.strict) {
-            throw new Entception(`unable to verify ${clauseToString(statement.clause)}`);
+            throw new Entception(`unable to verify ${clauseToString(statement.clause, true)}`);
           }
           return FALSE;
         }
@@ -316,10 +323,20 @@ export default class Interpreter {
   }
 
   claim(clause: Clause): boolean {
+    if (clause.type === "function") {
+      throw new Entception("can't verify functions");
+    }
     this.claims.push(clause);
-    const facts = this.query(clause);
-    const negative = !!(clause.type === "fact" && clause.negative);
-    return (!negative && facts.length > 0) || (negative && facts.length === 0);
+    this.search(clause).forEach((binding) => {
+      binding.comparisons.forEach((comparison) => {
+        this.evaluateExpression(comparison, binding);
+      });
+    });
+    if (clause.type === "fact") {
+      return !!clause.matches;
+    }
+    this.evaluateVeracity(clause);
+    return !!clause.veracity;
   }
 
   roll(roll: Rolling): Fact[] {
@@ -359,6 +376,7 @@ export default class Interpreter {
     if (clause.type === "fact" && clause.matches === undefined) {
       clause.matches = [];
     }
+    let bindings: Binding[];
     switch (clause.type) {
       case "fact":
         // facts return one binding per matching row of the table
@@ -488,16 +506,22 @@ export default class Interpreter {
     const r = right.type === "roll" ? this.averageRoll(right) : right.value;
     switch (comparison.operator) {
       case "=":
+        comparison.veracity ||= l === r;
         return l === r;
       case "!=":
+        comparison.veracity ||= l !== r;
         return l !== r;
       case ">":
+        comparison.veracity ||= l > r;
         return l > r;
       case ">=":
+        comparison.veracity ||= l >= r;
         return l >= r;
       case "<":
+        comparison.veracity ||= l < r;
         return l < r;
       case "<=":
+        comparison.veracity ||= l <= r;
         return l <= r;
     }
   }
@@ -722,6 +746,35 @@ export default class Interpreter {
         return a.concat(expr.arguments.map((e) => this.searchExpression(e, fn)).flat());
     }
   }
+
+  evaluateVeracity(clause: Clause): boolean {
+    if (clause.type === "function") {
+      throw new Entception(`cannot evaluate veracity of function ${expressionToString(clause)}`);
+    }
+    switch (clause.type) {
+      case "fact":
+        return (
+          (clause.negative && (clause.matches || []).length === 0) ||
+          (!clause.negative && (clause.matches || []).length > 0)
+        );
+      case "comparison":
+        if (clause.veracity === undefined) {
+          throw new Entception(`expected comparison to have veracity: ${comparisonToString(clause)}`);
+        }
+        return clause.veracity;
+      case "conjunction":
+        clause.veracity = clause.clauses.every((c) => this.evaluateVeracity(c));
+        break;
+      case "disjunction":
+        clause.veracity = clause.clauses.some((c) => this.evaluateVeracity(c));
+        break;
+      case "exclusive_disjunction":
+        clause.veracity = clause.clauses.filter((c) => this.evaluateVeracity(c)).length === 1;
+        break;
+    }
+    clause.veracity = (clause.negative && !clause.veracity) || (!clause.negative && clause.veracity);
+    return clause.veracity;
+  }
 }
 
 export function statementToString(stmt: Statement, color: boolean = false): string {
@@ -761,18 +814,38 @@ export function factToString(fact: Fact, color: boolean = false): string {
   return s;
 }
 
+const JUNCTION_OPERATOR = {
+  conjunction: "&",
+  disjunction: "|",
+  exclusive_disjunction: "^",
+};
+
 export function clauseToString(clause: Clause, color: boolean = false): string {
+  const neg = "negative" in clause && clause.negative ? "~" : "";
   switch (clause.type) {
     case "fact":
       return factToString(clause, color);
     case "conjunction":
-      return "(" + clause.clauses.map((c) => clauseToString(c, color)).join(" & ") + ")";
     case "disjunction":
-      return "(" + clause.clauses.map((c) => clauseToString(c, color)).join(" | ") + ")";
     case "exclusive_disjunction":
-      return "(" + clause.clauses.map((c) => clauseToString(c, color)).join(" ⊕ ") + ")";
+      const op = " " + JUNCTION_OPERATOR[clause.type] + " ";
+      let parens = ["(", ")"];
+      if (clause.veracity === true) {
+        parens = parens.map((s) => chalk.green(s));
+      } else if (clause.veracity === false) {
+        parens = parens.map((s) => chalk.red(s));
+      } else {
+        parens = parens.map((s) => chalk.yellow(s));
+      }
+      return neg + parens[0] + clause.clauses.map((c) => clauseToString(c, color)).join(op) + parens[1];
     case "comparison":
-      return comparisonToString(clause, color);
+      if (clause.veracity === true) {
+        return chalk.green(comparisonToString(clause));
+      } else if (clause.veracity === false) {
+        return chalk.red(comparisonToString(clause));
+      } else {
+        return chalk.yellow(comparisonToString(clause));
+      }
     default:
       return JSON.stringify(clause, null, 2);
   }
@@ -801,7 +874,7 @@ export function expressionToString(expr: Expression): string {
   }
 }
 
-export function comparisonToString(comparison: Comparison, color: boolean = false): string {
+export function comparisonToString(comparison: Comparison): string {
   return `${expressionToString(comparison.left)} ${comparison.operator} ${expressionToString(comparison.right)}`;
 }
 

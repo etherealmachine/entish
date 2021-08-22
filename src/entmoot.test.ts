@@ -454,3 +454,9 @@ test("mutually-referential inferences", () => {
   interpreter.load("ergo bar(1).");
   interpreter.load("ergo ~foo(2).");
 });
+
+test("complicated claims", () => {
+  const interpreter = new Interpreter("seed");
+  interpreter.load("ergo ((1+1 = 2) | (1+2 != 3)).");
+  interpreter.load("ergo ~((1+1 = 3) | (2+2 = 5)).");
+});

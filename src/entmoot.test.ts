@@ -432,3 +432,16 @@ test("load and exec markdown rules for dungeon world", () => {
     }
   });
 });
+
+test("self-referential inferences", () => {
+  const interpreter = new Interpreter("seed");
+  interpreter.load("foo(x+1) :- foo(x).");
+  interpreter.load("foo(0).");
+});
+
+test("mutually-referential inferences", () => {
+  const interpreter = new Interpreter("seed");
+  interpreter.load("foo(x+1) :- bar(x).");
+  interpreter.load("bar(x+1) :- foo(x).");
+  interpreter.load("foo(0).");
+});

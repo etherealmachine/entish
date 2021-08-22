@@ -133,13 +133,13 @@ export type Binding = {
   group?: Binding[];
 };
 
-export class Entception extends Error {}
+export class Entception extends Error { }
 
 export class BindingMismatch extends Error {
   type: string = "BindingMismatch";
 }
 
-export class TODO extends Error {}
+export class TODO extends Error { }
 
 function groupBy<T>(array: T[], f: (o: T) => string) {
   const groups: { [key: string]: T[] } = {};
@@ -218,7 +218,7 @@ export default class Interpreter {
           return {
             type: "boolean",
             value: false,
-          };
+          } as Boolean;
         }
         return facts;
       case "query":
@@ -284,7 +284,7 @@ export default class Interpreter {
     }
     if (!this.tables[fact.table].some((existingFact) => equal(existingFact, fact))) {
       this.tables[fact.table].push(fact);
-      return [fact].concat(this.inferences.map((i) => this.loadInference(i, true)).flat());
+      return [fact].concat(this.inferences.map(inference => this.loadInference(inference, true)).flat());
     }
     return [fact];
   }
@@ -765,7 +765,7 @@ export function expressionToString(expr: Expression): string {
     case "binary_operation":
       return `${expressionToString(expr.left)} ${expr.operator} ${expressionToString(expr.right)}`;
     case "function":
-      return `${expr.function} (${expr.arguments.map((e) => expressionToString(e)).join(", ")})`;
+      return `${expr.function}(${expr.arguments.map((e) => expressionToString(e)).join(", ")})`;
     case "comparison":
       return comparisonToString(expr);
     default:

@@ -17,7 +17,7 @@ if (staticGrammar === "entish.peg") {
   const fs = require("fs");
   grammar = fs.readFileSync("./src/entish.peg").toString();
 } else {
-  grammar = staticGrammar;
+  grammar = staticGrammar.default;
 }
 
 export type Statement = Comment | Fact | Inference | Claim | Rolling | Query | Function;

@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.js": "/entish/static/js/main.4b3c2841.chunk.js",
-    "main.js.map": "/entish/static/js/main.4b3c2841.chunk.js.map",
+    "main.js": "/entish/static/js/main.33d302d5.chunk.js",
+    "main.js.map": "/entish/static/js/main.33d302d5.chunk.js.map",
     "runtime-main.js": "/entish/static/js/runtime-main.28cbdff2.js",
     "runtime-main.js.map": "/entish/static/js/runtime-main.28cbdff2.js.map",
     "static/js/2.5cbf315a.chunk.js": "/entish/static/js/2.5cbf315a.chunk.js",
@@ -14,6 +14,6 @@
   "entrypoints": [
     "static/js/runtime-main.28cbdff2.js",
     "static/js/2.5cbf315a.chunk.js",
-    "static/js/main.4b3c2841.chunk.js"
+    "static/js/main.33d302d5.chunk.js"
   ]
 }

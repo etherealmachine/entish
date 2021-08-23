@@ -252,6 +252,8 @@ export default class Interpreter {
               type: "boolean",
               value: this.claims.every((claim) => this.claim(claim)),
             };
+          default:
+            throw new TODO(`can't handle command of type ${(statement as any).command}`);
         }
       case "fact":
         return this.loadFact(statement, []);
@@ -410,7 +412,6 @@ export default class Interpreter {
     if (clause.type === "fact" && clause.matches === undefined) {
       clause.matches = [];
     }
-    let bindings: Binding[];
     switch (clause.type) {
       case "fact":
         // facts return one binding per matching row of the table
@@ -447,7 +448,9 @@ export default class Interpreter {
           },
         ];
       case "function":
-        throw new TODO("can't handle function as clause");
+        throw new TODO("can't handle function in clause");
+      default:
+        throw new TODO(`can't handle ${(clause as any).type} in clause`);
     }
   }
 
@@ -485,7 +488,7 @@ export default class Interpreter {
             comparisons: binding.comparisons,
           };
           binding.comparisons.forEach((comparison) => {
-            if (!this.compare(comparison, newBinding)) {
+            if (!this.evaluateComparison(comparison, newBinding)) {
               throw new BindingMismatch(`false comparison: ${clauseToString(comparison)}, ${newBinding.values}`);
             }
           });
@@ -533,7 +536,7 @@ export default class Interpreter {
     };
   }
 
-  compare(comparison: Comparison, binding: Binding): boolean {
+  evaluateComparison(comparison: Comparison, binding: Binding): boolean {
     const left = this.evaluateExpression(comparison.left, binding);
     const right = this.evaluateExpression(comparison.right, binding);
     const l = left.type === "roll" ? this.averageRoll(left) : left.value;
@@ -612,33 +615,37 @@ export default class Interpreter {
   }
 
   evaluateFunction(fn: Function, binding: Binding): Constant {
+    let arg: Expression;
     switch (fn.function) {
       case "Floor":
-        const arg = this.evaluateExpression(fn.arguments[0], binding);
+        arg = this.evaluateExpression(fn.arguments[0], binding);
         if (arg.type !== "number") {
-          throw new Entception(`floor requires numeric argument, got ${arg.type}`);
+          throw new Entception(`Floor requires numeric argument, got ${arg.type}`);
+        }
+        return { type: "number", value: Math.floor(arg.value) };
+      case "Ceil":
+        arg = this.evaluateExpression(fn.arguments[0], binding);
+        if (arg.type !== "number") {
+          throw new Entception(`Floor requires numeric argument, got ${arg.type}`);
         }
         return { type: "number", value: Math.floor(arg.value) };
       case "Sum":
         if (binding.group === undefined) {
-          return {
-            type: "number",
-            value: 0,
-          };
+          throw new Entception("Sum function called with no bound group");
         }
-        const sumArg = fn.arguments[0];
-        if (sumArg.type !== "variable") {
-          throw new Entception(`sum function requires a single variable argument, got ${sumArg.type}`);
+        arg = fn.arguments[0];
+        if (arg.type !== "variable") {
+          throw new Entception(`Sum function requires a single variable argument, got ${arg.type}`);
         }
         return {
           type: "number",
           value: binding.group
-            .map((g) => g.values[sumArg.value])
+            .map((g) => g.values[(arg as Variable).value])
             .reduce((total, curr) => {
               if (curr === undefined) return total;
               if (curr.type === "roll") return total;
               if (curr.type !== "number")
-                throw new Entception(`sum got a non-numerical argument, ${sumArg.value} = ${curr.type}`);
+                throw new Entception(`Sum got a non-numerical argument, ${(arg as Variable).value} = ${curr.type}`);
               return total + curr.value;
             }, 0),
         };
@@ -660,6 +667,17 @@ export default class Interpreter {
           return roll;
         }
       case "Count":
+        if (binding.group === undefined) {
+          throw new Entception("Count function called with no bound group");
+        }
+        arg = fn.arguments[0];
+        if (arg.type !== "variable") {
+          throw new Entception(`Count function requires a single variable argument, got ${arg.type}`);
+        }
+        return {
+          type: "number",
+          value: binding.group.length,
+        };
       default:
         throw new TODO(`can't handle function ${fn.function}`);
     }
@@ -704,7 +722,7 @@ export default class Interpreter {
         }
         return boundVariable;
       case "comparison":
-        return { type: "boolean", value: this.compare(expr, binding) };
+        return { type: "boolean", value: this.evaluateComparison(expr, binding) };
       case "boolean":
       case "string":
       case "number":
@@ -796,6 +814,8 @@ export default class Interpreter {
       case "exclusive_disjunction":
         clause.veracity = clause.clauses.filter((c) => this.evaluateVeracity(c)).length === 1;
         break;
+      default:
+        throw new TODO(`can't evaluate veracity of ${(clause as any).type}`);
     }
     clause.veracity = (clause.negative && !clause.veracity) || (!clause.negative && clause.veracity);
     return clause.veracity;

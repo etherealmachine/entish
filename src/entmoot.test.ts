@@ -465,3 +465,14 @@ test("inferring graphs", () => {
   interpreter.load("ergo sibling(Bin, Jane) & sibling(Jane, Bin).");
   interpreter.load("ergo ~sibling(Bin, Bin) & ~sibling(Jane, Jane).");
 });
+
+test("counts", () => {
+  const interpreter = new Interpreter("seed");
+  interpreter.load("sibling(x, y) :- parent(x, p) & parent(y, p) & x != y.");
+  interpreter.load("parent(Bin, Paula).");
+  interpreter.load("parent(Jane, Paula).");
+  interpreter.load("ergo sibling(Bin, Jane) & sibling(Jane, Bin).");
+  interpreter.load("ergo ~sibling(Bin, Bin) & ~sibling(Jane, Jane).");
+  interpreter.load("? sibling(?, ?).");
+  interpreter.load("ergo sibling(sibling1, sibling2) & Count(sibling1) = 2.");
+});

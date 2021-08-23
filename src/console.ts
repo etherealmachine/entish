@@ -19,8 +19,10 @@ function main() {
           result.forEach((f) => {
             console.log(factToString(f));
           });
-        } else if (result.type === "boolean" && !result.value) {
+        } else if (stmt.type === "claim" && result.type === "boolean" && !result.value) {
           console.log(statementToString(stmt, true));
+        } else if (result.type === "string") {
+          console.log(result.value);
         }
       });
     } catch (e: any) {

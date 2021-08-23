@@ -48,6 +48,7 @@ statements
 
 statement
   = comment:comment "\n"? { return comment }
+  / command:command "." { return command }
   / inference:inference "." { return inference }
   / claim:claim "." { return claim }
   / fn:function "." { return fn }
@@ -59,6 +60,12 @@ statement
 comment
   = "//" comment:[^\n]* { return { type: 'comment', value: comment.join('').trim() } }
   / "/*" comment:(!"*/" .)* "*/" { return { type: 'comment', value: comment.flat().join('').trim() }}
+
+command
+  = command:builtin_command args:("(" _ args:arguments _ ")" { return args.arguments })? { return { type: 'command', command: command, arguments: args || [] } }
+
+builtin_command
+  = "load" / "get" / "set" / "verify"
 
 inference
   = left:fact _ ":-" _ right:clause { return { type: 'inference', left, right } }
@@ -112,7 +119,6 @@ builtin_function
   / "Max"
   / "Sum"
   / "Count"
-  / "Load"
   / "Pr"
 
 arguments

@@ -22,11 +22,17 @@ if (staticGrammar === "entish.peg") {
   grammar = staticGrammar.default;
 }
 
-export type Statement = Comment | Fact | Inference | Claim | Rolling | Query | Function;
+export type Statement = Comment | Command | Fact | Inference | Claim | Rolling | Query | Function;
 
 export type Comment = {
   type: "comment";
   value: string;
+};
+
+export type Command = {
+  type: "command";
+  command: "load" | "set" | "get" | "verify";
+  arguments: Expression[];
 };
 
 export type Fact = {
@@ -104,7 +110,7 @@ export type BinaryOperation = {
 
 export type Function = {
   type: "function";
-  function: "Floor" | "Ceil" | "Min" | "Max" | "Sum" | "Count" | "Load" | "Pr";
+  function: "Floor" | "Ceil" | "Min" | "Max" | "Sum" | "Count" | "Pr";
   arguments: Expression[];
 };
 
@@ -222,6 +228,31 @@ export default class Interpreter {
     switch (statement.type) {
       case "comment":
         return [];
+      case "command":
+        switch (statement.command) {
+          case "load":
+            if (statement.arguments[0].type !== "string") {
+              throw new Entception(`expected load(<filename:string)>, got ${statement.arguments[0].type}`);
+            }
+            this.loadFromFile(statement.arguments[0].value);
+            return TRUE;
+          case "set":
+            let key = statement.arguments[0];
+            const value = statement.arguments[1];
+            (this as any)[(key as any).value] = eval((value as any).value);
+            return TRUE;
+          case "get":
+            key = statement.arguments[0];
+            return {
+              type: "string",
+              value: JSON.stringify((this as any)[(key as any).value], null, 2),
+            };
+          case "verify":
+            return {
+              type: "boolean",
+              value: this.claims.every((claim) => this.claim(claim)),
+            };
+        }
       case "fact":
         return this.loadFact(statement, []);
       case "inference":
@@ -266,19 +297,21 @@ export default class Interpreter {
     }
   }
 
-  loadFromFile(filename: string) {
-    if (filename.endsWith(".ent")) {
-      const rules = fs.readFileSync(filename).toString();
+  loadFromFile(path: string) {
+    if (path.endsWith(".ent")) {
+      const rules = fs.readFileSync(path).toString();
       this.load(rules);
-    } else if (filename.endsWith(".md")) {
-      const markdown = fs.readFileSync(filename).toString();
+    } else if (path.endsWith(".md")) {
+      const markdown = fs.readFileSync(path).toString();
       const block = document.createElement("div");
       block.innerHTML = marked(markdown);
       Array.from(block.querySelectorAll("code.language-entish")).forEach((node) => {
         if (node.textContent) this.load(node.textContent);
       });
-    } else {
-      throw new Entception(`unknown file type ${filename.split(".").pop()}`);
+    } else if (fs.existsSync(path) && fs.lstatSync(path).isDirectory()) {
+      fs.readdirSync(path).forEach((f) => {
+        this.loadFromFile(path + "/" + f);
+      });
     }
   }
 
@@ -333,7 +366,8 @@ export default class Interpreter {
       });
     });
     if (clause.type === "fact") {
-      return !!clause.matches;
+      const veracity = clause.matches !== undefined && clause.matches.length > 0;
+      return (!!!clause.negative && veracity) || (!!clause.negative && !veracity);
     }
     this.evaluateVeracity(clause);
     return !!clause.veracity;
@@ -625,15 +659,6 @@ export default class Interpreter {
           if (roll.type !== "roll") throw new Entception(`first argument to probability function must be a roll`);
           return roll;
         }
-      case "Load":
-        if (fn.arguments[0].type !== "string") {
-          throw new Entception(`expected load(<filename:string)>, got ${fn.arguments[0].type}`);
-        }
-        this.loadFromFile(fn.arguments[0].value);
-        return {
-          type: "boolean",
-          value: true,
-        };
       case "Count":
       default:
         throw new TODO(`can't handle function ${fn.function}`);
@@ -787,6 +812,8 @@ export function statementToString(stmt: Statement, color: boolean = false): stri
       return queryToString(stmt, color);
     case "comment":
       return `// ${stmt.value}`;
+    case "command":
+      return commandToString(stmt);
     default:
       return JSON.stringify(stmt, null, 2);
   }
@@ -889,4 +916,8 @@ export function claimToString(claim: Claim, color: boolean = false): string {
 
 export function rollingToString(roll: Rolling): string {
   return `roll ${clauseToString(roll.clause)}`;
+}
+
+export function commandToString(command: Command): string {
+  return `${command.command}(${command.arguments.map((e) => expressionToString(e)).join(", ")})`;
 }

@@ -411,9 +411,10 @@ test("negating facts and claims", () => {
 });
 
 test("load and exec rules from file", () => {
-  const interpreter = new Interpreter("seed");
-  const statements = interpreter.parse(fs.readFileSync("./src/dungeon_world.ent").toString());
-  statements.forEach((stmt) => interpreter.exec(stmt));
+  const interpreter = new Interpreter("seed", false);
+  interpreter.load('load("./src/dungeon_world.ent").');
+  interpreter.load("set(strict, true).");
+  interpreter.load("verify.");
 });
 
 test("load and exec markdown rules for dungeon world", () => {
@@ -430,12 +431,7 @@ test("load and exec markdown rules for dungeon world", () => {
   interpreter.load("carrying(Auric, DungeonRations, 5).");
   interpreter.load("wielding(Auric, Dagger).");
   interpreter.load("wielding(Auric, Axe).");
-
-  fs.readdirSync("./src/rules/dungeon_world").forEach((filename) => {
-    if (filename.endsWith(".md")) {
-      interpreter.loadFromFile("./src/rules/dungeon_world/" + filename);
-    }
-  });
+  interpreter.load('load("./src/rules/dungeon_world").');
 });
 
 test("self-referential inferences", () => {

@@ -16,3 +16,5 @@ declare module "*.md" {
 declare module "highlight";
 
 declare module "pegjs-backtrace";
+
+declare module "cytoscape-cose-bilkent";

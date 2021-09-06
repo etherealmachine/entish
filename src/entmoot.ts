@@ -41,6 +41,7 @@ export type Fact = {
   fields: Expression[];
   negative?: boolean;
   matches?: Fact[];
+  bindings?: Binding[];
 };
 
 export type Inference = {
@@ -49,13 +50,14 @@ export type Inference = {
   right: Conjunction | Disjunction;
 };
 
-export type Clause = Fact | Function | Conjunction | Disjunction | ExclusiveDisjunction | Comparison;
+export type Clause = Fact | Conjunction | Disjunction | ExclusiveDisjunction | Comparison;
 
 export type Conjunction = {
   type: "conjunction";
   clauses: Clause[];
   negative?: boolean;
   veracity?: boolean;
+  bindings?: Binding[];
 };
 
 export type Disjunction = {
@@ -63,6 +65,7 @@ export type Disjunction = {
   clauses: Clause[];
   negative?: boolean;
   veracity?: boolean;
+  bindings?: Binding[];
 };
 
 export type ExclusiveDisjunction = {
@@ -70,6 +73,7 @@ export type ExclusiveDisjunction = {
   clauses: Clause[];
   negative?: boolean;
   veracity?: boolean;
+  bindings?: Binding[];
 };
 
 export type Comparison = {
@@ -78,6 +82,7 @@ export type Comparison = {
   left: Expression;
   right: Expression;
   veracity?: boolean;
+  bindings?: Binding[];
 };
 
 export type ComparisonOperator = "=" | ">" | "<" | ">=" | "<=" | "!=";
@@ -151,12 +156,7 @@ export type Roll = {
   modifier: number;
 };
 
-export type Binding = {
-  facts: Fact[];
-  values: { [key: string]: Constant | undefined };
-  comparisons: Comparison[];
-  group?: Binding[];
-};
+export type Binding = { [key: string]: Constant | undefined };
 
 export class Entception extends Error {}
 
@@ -166,7 +166,7 @@ export class BindingMismatch extends Error {
 
 export class TODO extends Error {}
 
-function groupBy<T>(array: T[], f: (o: T) => string) {
+function groupBy<T>(array: T[], f: (o: T) => string): T[][] {
   const groups: { [key: string]: T[] } = {};
   array.forEach((o) => {
     const group = f(o);
@@ -272,7 +272,7 @@ export default class Interpreter {
       case "rolling":
         return this.roll(statement);
       case "function":
-        return this.evaluateFunction(statement, { facts: [], values: {}, comparisons: [] });
+        return this.evaluateFunction(statement, {});
       default:
         throw new TODO(`unhandled statement type: ${(statement as any).type}`);
     }
@@ -352,12 +352,18 @@ export default class Interpreter {
   }
 
   query(clause: Clause): Fact[] {
+    this.search(clause);
+    return [];
+    /*
     return this.search(clause)
       .map((b) => b.facts)
       .flat();
+    */
   }
 
   claim(clause: Clause): boolean {
+    return false;
+    /*
     if (clause.type === "function") {
       throw new Entception("can't verify functions");
     }
@@ -373,9 +379,12 @@ export default class Interpreter {
     }
     this.evaluateVeracity(clause);
     return !!clause.veracity;
+    */
   }
 
   roll(roll: Rolling): Fact[] {
+    return [];
+    /*
     const newFacts: Fact[] = this.search(roll.clause)
       .map((b) => b.facts)
       .flat()
@@ -388,9 +397,12 @@ export default class Interpreter {
       });
     newFacts.forEach((fact) => this.loadFact(fact, []));
     return newFacts;
+    */
   }
 
   loadInference(inference: Inference, ignore: Inference[]): Fact[] {
+    return [];
+    /*
     const bindings = this.aggregate(inference.left, this.search(inference.right));
     const facts: Fact[] = bindings.map((binding) => {
       return {
@@ -406,49 +418,27 @@ export default class Interpreter {
     ignore.push(inference);
     const inferredFacts = facts.map((f) => this.loadFact(f, ignore)).flat();
     return inferredFacts;
+    */
   }
 
-  search(clause: Clause): Binding[] {
-    if (clause.type === "fact" && clause.matches === undefined) {
-      clause.matches = [];
-    }
+  search(clause: Clause) {
+    if (clause.type === "fact" && clause.matches === undefined) clause.matches = [];
     switch (clause.type) {
       case "fact":
         // facts return one binding per matching row of the table
-        return (this.tables[clause.table] || [])
-          .map((fact) => this.bind(fact, clause))
-          .filter((b) => b !== undefined) as Binding[];
+        (this.tables[clause.table] || []).forEach((fact) => this.bind(fact, clause));
+        break;
       case "conjunction":
-        // conjunction joins bindings into a single binding
-        let rows: Binding[][] = [];
-        this.join(
-          clause.clauses.map((clause) => this.search(clause)),
-          [],
-          rows
-        );
-        return rows.map((bindings) => this.reduceBindings(bindings)).filter((b) => b !== undefined) as Binding[];
       case "disjunction":
-        // disjunction concatenates bindings
-        return clause.clauses.map((clause) => this.search(clause)).flat();
       case "exclusive_disjunction":
-        const matches = clause.clauses
-          .map((clause) => this.search(clause))
-          .flat()
-          .filter((b) => b.facts.length > 0);
-        if (matches.length === 1) {
-          return matches;
-        }
-        return [];
+        clause.clauses.forEach((child) => {
+          this.search(child);
+          if (clause.bindings === undefined) clause.bindings = [];
+          clause.bindings = clause.bindings.concat(child.bindings || []);
+        });
+        break;
       case "comparison":
-        return [
-          {
-            facts: [] as Fact[],
-            values: {},
-            comparisons: [clause],
-          },
-        ];
-      case "function":
-        throw new TODO("can't handle function in clause");
+        return [];
       default:
         throw new TODO(`can't handle ${(clause as any).type} in clause`);
     }
@@ -470,43 +460,27 @@ export default class Interpreter {
   // it discards non-matching bindings (i.e. bindings that "disagree on the facts")
   reduceBindings(bindings: Binding[]): Binding | undefined {
     try {
-      return bindings.reduce(
-        (current, binding) => {
-          Object.keys(current.values).forEach((key) => {
-            const boundVariable = binding.values[key];
-            const currBoundVariable = current.values[key];
-            if (boundVariable === undefined || currBoundVariable === undefined) return;
-            if (!equal(boundVariable, currBoundVariable)) {
-              throw new BindingMismatch(
-                `bindings disagree: ${expressionToString(boundVariable)} != ${expressionToString(currBoundVariable)}`
-              );
-            }
-          });
-          const newBinding = {
-            facts: current.facts.concat(binding.facts),
-            values: Object.assign(current.values, binding.values),
-            comparisons: binding.comparisons,
-          };
-          binding.comparisons.forEach((comparison) => {
-            if (!this.evaluateComparison(comparison, newBinding)) {
-              throw new BindingMismatch(`false comparison: ${clauseToString(comparison)}, ${newBinding.values}`);
-            }
-          });
-          return newBinding;
-        },
-        {
-          facts: [],
-          values: {},
-          comparisons: [],
-        } as Binding
-      );
+      return bindings.reduce((current, binding) => {
+        Object.keys(current).forEach((key) => {
+          const boundVariable = binding[key];
+          const currBoundVariable = current[key];
+          if (boundVariable === undefined || currBoundVariable === undefined) return;
+          if (!equal(boundVariable, currBoundVariable)) {
+            throw new BindingMismatch(
+              `bindings disagree: ${expressionToString(boundVariable)} != ${expressionToString(currBoundVariable)}`
+            );
+          }
+        });
+        return Object.assign(current, binding);
+      }, {});
     } catch (e: any) {
       if (e.type === "BindingMismatch") return undefined;
       throw e;
     }
   }
 
-  bind(fact: Fact, clause: Fact): Binding | undefined {
+  bind(fact: Fact, clause: Fact) {
+    if (clause.bindings === undefined) clause.bindings = [];
     const entries: [string, Constant][] = [];
     for (let i = 0; i < fact.fields.length; i++) {
       const value = fact.fields[i];
@@ -528,12 +502,7 @@ export default class Interpreter {
       clause.matches = [];
     }
     clause.matches.push(fact);
-    const bindings = Object.fromEntries(entries);
-    return {
-      facts: [fact],
-      values: bindings,
-      comparisons: [],
-    };
+    clause.bindings.push(Object.fromEntries(entries));
   }
 
   evaluateComparison(comparison: Comparison, binding: Binding): boolean {
@@ -543,22 +512,16 @@ export default class Interpreter {
     const r = right.type === "roll" ? this.averageRoll(right) : right.value;
     switch (comparison.operator) {
       case "=":
-        comparison.veracity ||= l === r;
         return l === r;
       case "!=":
-        comparison.veracity ||= l !== r;
         return l !== r;
       case ">":
-        comparison.veracity ||= l > r;
         return l > r;
       case ">=":
-        comparison.veracity ||= l >= r;
         return l >= r;
       case "<":
-        comparison.veracity ||= l < r;
         return l < r;
       case "<=":
-        comparison.veracity ||= l <= r;
         return l <= r;
     }
   }
@@ -614,6 +577,13 @@ export default class Interpreter {
     };
   }
 
+  aggregate(variables: string[], bindings: Binding[]): Binding[][] {
+    return groupBy(bindings, (b) => {
+      const group = Object.fromEntries(variables.map((v) => [v, b[v]]));
+      return JSON.stringify(group);
+    });
+  }
+
   evaluateFunction(fn: Function, binding: Binding): Constant {
     let arg: Expression;
     switch (fn.function) {
@@ -629,26 +599,6 @@ export default class Interpreter {
           throw new Entception(`Floor requires numeric argument, got ${arg.type}`);
         }
         return { type: "number", value: Math.floor(arg.value) };
-      case "Sum":
-        if (binding.group === undefined) {
-          throw new Entception("Sum function called with no bound group");
-        }
-        arg = fn.arguments[0];
-        if (arg.type !== "variable") {
-          throw new Entception(`Sum function requires a single variable argument, got ${arg.type}`);
-        }
-        return {
-          type: "number",
-          value: binding.group
-            .map((g) => g.values[(arg as Variable).value])
-            .reduce((total, curr) => {
-              if (curr === undefined) return total;
-              if (curr.type === "roll") return total;
-              if (curr.type !== "number")
-                throw new Entception(`Sum got a non-numerical argument, ${(arg as Variable).value} = ${curr.type}`);
-              return total + curr.value;
-            }, 0),
-        };
       case "Pr":
         if (fn.arguments[0].type === "comparison") {
           const roll = this.evaluateExpression(fn.arguments[0].left, binding);
@@ -666,20 +616,42 @@ export default class Interpreter {
           if (roll.type !== "roll") throw new Entception(`first argument to probability function must be a roll`);
           return roll;
         }
-      case "Count":
-        if (binding.group === undefined) {
-          throw new Entception("Count function called with no bound group");
-        }
-        arg = fn.arguments[0];
-        if (arg.type !== "variable") {
-          throw new Entception(`Count function requires a single variable argument, got ${arg.type}`);
-        }
-        return {
-          type: "number",
-          value: binding.group.length,
-        };
       default:
         throw new TODO(`can't handle function ${fn.function}`);
+    }
+  }
+
+  evaluateAggregateFunction(fn: Function, bindings: Binding[]): Constant[] {
+    if (fn.arguments[0].type !== "variable") {
+      throw new Entception(`${fn.function} function requires a single variable argument, got ${fn.arguments[0].type}`);
+    }
+    const arg = fn.arguments[0];
+    const agg = this.aggregate([arg.value], bindings);
+    switch (fn.function) {
+      case "Count":
+        return agg.map((group: Binding[]) => {
+          return {
+            type: "number",
+            value: group.length,
+          };
+        });
+      case "Sum":
+        return agg.map((group: Binding[]) => {
+          return {
+            type: "number",
+            value: group
+              .map((b) => b[arg.value])
+              .reduce((total, curr) => {
+                if (curr === undefined) return total;
+                if (curr.type === "roll") return total;
+                if (curr.type !== "number")
+                  throw new Entception(`Sum got a non-numerical argument, ${arg.value} = ${curr.type}`);
+                return total + curr.value;
+              }, 0),
+          };
+        });
+      default:
+        throw new TODO(`can't handle aggregate function "${fn.function}"`);
     }
   }
 
@@ -716,7 +688,7 @@ export default class Interpreter {
       case "function":
         return this.evaluateFunction(expr, binding);
       case "variable":
-        const boundVariable = binding.values[expr.value];
+        const boundVariable = binding[expr.value];
         if (boundVariable === undefined) {
           throw new Entception(`variable ${expr.value} missing from binding`);
         }
@@ -731,43 +703,6 @@ export default class Interpreter {
       default:
         throw new Entception(`unhandled expression type ${(expr as any).type}: ${expressionToString(expr)}`);
     }
-  }
-
-  aggregate(fact: Fact, bindings: Binding[]): Binding[] {
-    const aggregations = fact.fields
-      .map((e) =>
-        this.searchExpression(e, (e) => {
-          if (e.type === "function" && e.function === "Sum") return e;
-          return undefined;
-        })
-      )
-      .flat()
-      .filter((e) => e !== undefined) as Function[];
-    const variables = fact.fields
-      .map((e) =>
-        this.searchExpression(e, (e) => {
-          if (e.type === "function" && e.function === "Sum") return false;
-          if (e.type === "variable") return e;
-          return undefined;
-        })
-      )
-      .flat()
-      .filter((e) => e !== undefined) as Variable[];
-    if (aggregations.length === 0) {
-      return bindings;
-    }
-    const groups = groupBy(bindings, (b) => {
-      const group = Object.fromEntries(variables.map((v) => [v.value, b.values[v.value]]));
-      return JSON.stringify(group);
-    });
-    return groups.map((g) => {
-      return {
-        facts: g.map((b) => b.facts).flat(),
-        values: g[0].values,
-        comparisons: g.map((b) => b.comparisons).flat(),
-        group: g,
-      };
-    });
   }
 
   searchExpression<T>(expr: Expression, fn: (expr: Expression) => T | undefined | false): T[] {
@@ -791,9 +726,6 @@ export default class Interpreter {
   }
 
   evaluateVeracity(clause: Clause): boolean {
-    if (clause.type === "function") {
-      throw new Entception(`cannot evaluate veracity of function ${expressionToString(clause)}`);
-    }
     switch (clause.type) {
       case "fact":
         return (

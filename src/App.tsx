@@ -1,5 +1,6 @@
 import styled from "astroturf/react";
 import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
+import Graph from "./Graph";
 
 import Playground from "./Playground";
 import Rules from "./Rules";
@@ -53,6 +54,11 @@ export default function App() {
   return (
     <Router>
       <Switch>
+        <Route path="/entish/graph">
+          <Container>
+            <Graph />
+          </Container>
+        </Route>
         <Route path="/entish/rules">
           <Container>
             <Rules />
